@@ -100,7 +100,11 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 .k.go{cursor:pointer}
 .k.go:active{transform:translateY(-8px) scale(1.04)}
 .main.zoom{padding:6px 8px;gap:8px}
-.main.zoom .k{width:auto;height:100%;aspect-ratio:110/156}
+/* Agrandies, mais JAMAIS au-delà de leur colonne : la carte doit tenir à la
+   fois dans la hauteur de la bande et dans la largeur qui lui revient.
+   Sans le max-width, cinq cartes débordaient largement de l'écran. */
+.main.zoom .k{height:100%;width:auto;max-width:100%;max-height:100%;
+  aspect-ratio:110/156;justify-self:center;align-self:center}
 .main.zoom .k{animation:monte .24s cubic-bezier(.2,.9,.3,1) both}
 @keyframes monte{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
 /* <<< STYLE-CARTE */
@@ -1404,9 +1408,21 @@ function rendre(){
   var carteL = largeurMain/5, carteH = carteL*1.4182;
   var hautMain = Math.round(2*carteH + 6 + 12);       // 2 rangées + écart + marge
   var zoom = (etape==="poser");
-  var cols = zoom ? Math.max(1,Math.min(aMontrer.length,5)) : 5;
+  var cols=5, rangs=2;
+  if(zoom){
+    /* On essaie une rangée, puis deux, et on garde la disposition qui donne
+       la PLUS GRANDE carte. Sur cinq cartes, une seule rangée les rendait
+       plus petites qu'au repos : deux rangées valent mieux. */
+    var n=Math.max(1,aMontrer.length), dispo=hautMain-12, meilleur=0;
+    [1,2].forEach(function(r){
+      var c=Math.ceil(n/r);
+      var colL=(largeurMain-8*(c-1))/c;
+      var L=Math.min((dispo-(r-1)*8)/r/1.4182, colL);
+      if(L>meilleur){ meilleur=L; cols=c; rangs=r; }
+    });
+  }
   h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;'
-    +'grid-template-rows:'+(zoom?"1fr":"1fr 1fr")+';'
+    +'grid-template-rows:repeat('+rangs+',1fr);'
     +'grid-template-columns:repeat('+cols+',1fr)">';
   aMontrer.forEach(function(c){
     var jouable=(jouables.indexOf(c.pilier)>=0);
