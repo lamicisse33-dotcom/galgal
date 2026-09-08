@@ -1,0 +1,6 @@
+# GALGAL — galgal.khalam.app
+# Un jeu de KHALAM. Tout est public.
+User-agent: *
+Allow: /
+
+Sitemap: https://galgal.khalam.app/sitemap.xml
