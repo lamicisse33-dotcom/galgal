@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Dossiers de telechargement/export deposes par erreur
+files - *
