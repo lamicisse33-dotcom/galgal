@@ -9,58 +9,23 @@
 <meta name="apple-mobile-web-app-title" content="GALGAL">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
-<title>GALGAL — jeu de cartes sénégalais à jouer en ligne | KHALAM</title>
-
-  <!-- L'EMBALLAGE. Ajouté le 8 septembre 2026, avant la mise en ligne.
-       Le titre disait encore « banc d'essai » : c'est ce que Google et
-       l'onglet du navigateur auraient affiché. Et rien ne décrivait le jeu,
-       donc un lien partagé sur WhatsApp — par où ce jeu circulera vraiment —
-       s'affichait en rectangle vide. C'est le défaut qui a rendu ÉQUILIBRE
-       DES CHOIX invisible pendant un mois. -->
-  <meta name="description" content="GALGAL, le jeu de cartes de KHALAM : quatre piliers de vie, chacun ouvre le sien, la plus forte carte emporte le pli. Gratuit, à jouer en ligne sans rien installer. Créé à Dakar, en français.">
-  <link rel="canonical" href="https://galgal.khalam.app/">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <meta name="author" content="KHALAM">
-
-  <meta property="og:title" content="GALGAL — le jeu de cartes de KHALAM">
-  <meta property="og:description" content="Quatre piliers, une carte par pilier, et c'est la plus forte qui emporte le pli. Solo contre l'ordinateur, jokers et bluff. Gratuit, sans installation.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://galgal.khalam.app/">
-  <meta property="og:locale" content="fr_FR">
-  <meta property="og:site_name" content="KHALAM">
-  <meta property="og:image" content="https://galgal.khalam.app/partage.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="GALGAL — jeu de cartes KHALAM">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="GALGAL — le jeu de cartes de KHALAM">
-  <meta name="twitter:description" content="Quatre piliers, une carte par pilier, et c'est la plus forte qui emporte le pli.">
-  <meta name="twitter:image" content="https://galgal.khalam.app/partage.png">
-
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "VideoGame",
-    "name": "GALGAL",
-    "url": "https://galgal.khalam.app/",
-    "image": "https://galgal.khalam.app/partage.png",
-    "description": "Jeu de cartes sénégalais : quatre piliers de vie, chacun ouvre le sien, et la plus forte carte emporte le pli.",
-    "inLanguage": "fr",
-    "genre": ["Jeu de cartes", "Stratégie", "Jeu de réflexion"],
-    "gamePlatform": "Navigateur web",
-    "playMode": "SinglePlayer",
-    "applicationCategory": "GameApplication",
-    "operatingSystem": "Tout navigateur web",
-    "countryOfOrigin": { "@type": "Country", "name": "Sénégal" },
-    "author": { "@type": "Organization", "name": "KHALAM", "url": "https://khalam.app/" },
-    "publisher": { "@type": "Organization", "name": "KHALAM", "url": "https://khalam.app/" },
-    "isAccessibleForFree": true,
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "XOF", "availability": "https://schema.org/InStock" }
-  }
-  </script>
+<title>GALGAL — banc d'essai</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* SANS CECI, iOS PREND LE JEU POUR DU TEXTE.
+   L'appui maintenu du balayage déclenche la sélection de Safari, puis son
+   glisser natif : les poignées bleues apparaissent et une carte se retrouve
+   arrachée de la main. On coupe la sélection, le menu contextuel et le
+   glisser natif partout — les réglages gardent les leurs. */
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  -webkit-user-drag:none;touch-action:manipulation;overscroll-behavior:none}
+.k,.carte,.slot,.med,.rond,.pile,.main,.mat,#vol,.jokbtn,.sonbtn{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  -webkit-user-drag:none;touch-action:none}
+img,svg{-webkit-user-drag:none;user-drag:none;pointer-events:none}
+/* Les curseurs et la liste des paramètres doivent rester manipulables. */
+input,select,textarea{-webkit-user-select:auto;user-select:auto;touch-action:auto}
 :root{--gold:#C9A227;--goldL:#F0D060;--muted:#8b8397;--text:#EDE7F6}
 body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Georgia,serif;
   min-height:100dvh;display:flex;flex-direction:column;padding:8px;gap:6px;max-width:520px;margin:0 auto}
@@ -140,8 +105,10 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 .msg b{color:var(--goldL)}
 .main{flex-shrink:0;box-sizing:border-box;border-radius:12px;padding:6px 4px;border:1px solid rgba(201,162,39,.42);
   background:linear-gradient(160deg,#0f1a14,#080b10);display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+/* Une seule dimension imposée, jamais deux : dès qu'on fixe la hauteur ET
+   la largeur, le navigateur abandonne le rapport et la carte s'étire. */
 .k{position:relative;cursor:pointer;width:100%;aspect-ratio:110/156;
-  max-height:100%;justify-self:center;align-self:center;
+  justify-self:center;align-self:center;
   transition:transform .78s cubic-bezier(.16,.84,.3,1),filter .78s cubic-bezier(.16,.84,.3,1)}
 .k:active{transform:translateY(-6px)}
 .k.lisible{opacity:1;cursor:default}
@@ -151,8 +118,8 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 /* Agrandies, mais JAMAIS au-delà de leur colonne : la carte doit tenir à la
    fois dans la hauteur de la bande et dans la largeur qui lui revient.
    Sans le max-width, cinq cartes débordaient largement de l'écran. */
-.main.zoom .k{height:100%;width:auto;max-width:100%;max-height:100%;
-  aspect-ratio:110/156;justify-self:center;align-self:center}
+.main.zoom .k{width:100%;height:auto;aspect-ratio:110/156;
+  justify-self:center;align-self:center}
 .main.zoom .k{animation:monte .24s cubic-bezier(.2,.9,.3,1) both}
 @keyframes monte{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
 /* <<< STYLE-CARTE */
@@ -1456,22 +1423,30 @@ function rendre(){
   var carteL = largeurMain/5, carteH = carteL*1.4182;
   var hautMain = Math.round(2*carteH + 6 + 12);       // 2 rangées + écart + marge
   var zoom = (etape==="poser");
-  var cols=5, rangs=2;
+  var cols=5, rangs=2, largeurCarte=0;
   if(zoom){
     /* On essaie une rangée, puis deux, et on garde la disposition qui donne
        la PLUS GRANDE carte. Sur cinq cartes, une seule rangée les rendait
        plus petites qu'au repos : deux rangées valent mieux. */
     var n=Math.max(1,aMontrer.length), dispo=hautMain-12, meilleur=0;
+    largeurCarte=0;
     [1,2].forEach(function(r){
       var c=Math.ceil(n/r);
       var colL=(largeurMain-8*(c-1))/c;
       var L=Math.min((dispo-(r-1)*8)/r/1.4182, colL);
-      if(L>meilleur){ meilleur=L; cols=c; rangs=r; }
+      if(L>meilleur){ meilleur=L; cols=c; rangs=r; largeurCarte=L; }
     });
   }
+  // En mode agrandi, on impose la LARGEUR des colonnes — celle qu'on vient de
+  // calculer — et la hauteur des cartes en découle par leur rapport. Avec des
+  // colonnes en «1fr», la carte subissait deux contraintes et s'étirait.
+  var colonnes = zoom
+    ? "repeat("+cols+","+Math.floor(largeurCarte)+"px)"
+    : "repeat("+cols+",1fr)";
   h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;'
     +'grid-template-rows:repeat('+rangs+',1fr);'
-    +'grid-template-columns:repeat('+cols+',1fr)">';
+    +(zoom?'justify-content:center;align-content:center;':'')
+    +'grid-template-columns:'+colonnes+'">';
   aMontrer.forEach(function(c){
     var jouable=(jouables.indexOf(c.pilier)>=0);
     h+='<div class="k'+(jouable?" go":" lisible")+(sel===c.id?" leve":"")+'"'
