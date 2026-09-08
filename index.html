@@ -9,7 +9,55 @@
 <meta name="apple-mobile-web-app-title" content="GALGAL">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
-<title>GALGAL — banc d'essai</title>
+<title>GALGAL — jeu de cartes sénégalais à jouer en ligne | KHALAM</title>
+
+  <!-- L'EMBALLAGE. Ajouté le 8 septembre 2026, avant la mise en ligne.
+       Le titre disait encore « banc d'essai » : c'est ce que Google et
+       l'onglet du navigateur auraient affiché. Et rien ne décrivait le jeu,
+       donc un lien partagé sur WhatsApp — par où ce jeu circulera vraiment —
+       s'affichait en rectangle vide. C'est le défaut qui a rendu ÉQUILIBRE
+       DES CHOIX invisible pendant un mois. -->
+  <meta name="description" content="GALGAL, le jeu de cartes de KHALAM : quatre piliers de vie, chacun ouvre le sien, la plus forte carte emporte le pli. Gratuit, à jouer en ligne sans rien installer. Créé à Dakar, en français.">
+  <link rel="canonical" href="https://galgal.khalam.app/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="author" content="KHALAM">
+
+  <meta property="og:title" content="GALGAL — le jeu de cartes de KHALAM">
+  <meta property="og:description" content="Quatre piliers, une carte par pilier, et c'est la plus forte qui emporte le pli. Solo contre l'ordinateur, jokers et bluff. Gratuit, sans installation.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://galgal.khalam.app/">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="KHALAM">
+  <meta property="og:image" content="https://galgal.khalam.app/partage.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="GALGAL — jeu de cartes KHALAM">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="GALGAL — le jeu de cartes de KHALAM">
+  <meta name="twitter:description" content="Quatre piliers, une carte par pilier, et c'est la plus forte qui emporte le pli.">
+  <meta name="twitter:image" content="https://galgal.khalam.app/partage.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "GALGAL",
+    "url": "https://galgal.khalam.app/",
+    "image": "https://galgal.khalam.app/partage.png",
+    "description": "Jeu de cartes sénégalais : quatre piliers de vie, chacun ouvre le sien, et la plus forte carte emporte le pli.",
+    "inLanguage": "fr",
+    "genre": ["Jeu de cartes", "Stratégie", "Jeu de réflexion"],
+    "gamePlatform": "Navigateur web",
+    "playMode": "SinglePlayer",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Tout navigateur web",
+    "countryOfOrigin": { "@type": "Country", "name": "Sénégal" },
+    "author": { "@type": "Organization", "name": "KHALAM", "url": "https://khalam.app/" },
+    "publisher": { "@type": "Organization", "name": "KHALAM", "url": "https://khalam.app/" },
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "XOF", "availability": "https://schema.org/InStock" }
+  }
+  </script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -83,8 +131,8 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 /* LA BANDE DE TEXTE — hauteur FIXE. Tous les messages y passent : consigne,
    verdict, joker armé, bouclier, attente. Elle ne change jamais de taille,
    donc rien ne bouge autour d'elle. */
-.msg{flex-shrink:0;text-align:center;font-size:12px;line-height:1.32;
-  height:74px;overflow:hidden;
+.msg{flex-shrink:0;text-align:center;font-size:12px;line-height:1.28;
+  height:86px;overflow:hidden;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:2px;padding:4px 8px;
   border-radius:10px;border:1px solid rgba(201,162,39,.22);
@@ -1162,7 +1210,7 @@ function reglagesHTML(){
       +'<input type="range" min="0" max="100" value="'+Math.round(AUDIO.volEffets()*100)+'"'
       +' oninput="reglerEffets(this.value)"></div>'
     +'<div class="regle"><label>🎵 Musique</label>'
-      +'<input type="range" min="0" max="100" value="'+Math.round(AUDIO.volMusique()*100)+'"'
+      +'<input type="range" min="0" max="100" value="'+Math.round(MUSIQUE.volume()*100)+'"'
       +' oninput="reglerMusique(this.value)"></div>'
     +'<div class="regle"><label>Manches par partie</label>'
       +'<select onchange="reglerManches(this.value)">'
@@ -1313,10 +1361,10 @@ function rendre(){
     msg='⚡ Elle a pris <b style="white-space:nowrap">'+pilIA+'.</b>'
       +'<br>Choisis un autre pilier — <i>aucune carte ne part avant.</i>';
   else if(etape==="poser" && cIA)
-    msg='🎴 Elle a posé <b>face cachée</b> sur <b>'+pilIA+'</b>.'
-      +'<br>Réponds avec une carte de <b>'+pilJ+'</b> — tu ne verras la sienne qu’après.';
+    msg='🎴 Elle a posé <b>face cachée</b> sur <b style="white-space:nowrap">'+pilIA+'.</b>'
+      +'<br>Réponds avec une carte de <b style="white-space:nowrap">'+pilJ+'.</b>';
   else if(etape==="poser")
-    msg='🎴 Les deux piliers sont pris.<br>Pose une carte de <b>'+pilJ+'</b>.';
+    msg='🎴 Les deux piliers sont pris.<br>Pose une carte de <b style="white-space:nowrap">'+pilJ+'.</b>';
   else if(etape==="verdict"){
     var gagne=dernier.gagnant===1;
     msg='<b style="font-size:15px">'+(gagne?"Tu remportes la manche":"Elle remporte la manche")+'</b>'

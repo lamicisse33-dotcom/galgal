@@ -11,7 +11,7 @@
 
    ⚠ Change VERSION à CHAQUE dépôt, sinon les joueurs gardent l'ancien jeu.
    ═══════════════════════════════════════════════════════════════════════ */
-const VERSION = "galgal-v1";
+const VERSION = "galgal-v3";
 const COQUILLE = [
   "./",
   "./index.html",
