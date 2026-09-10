@@ -9,7 +9,9 @@
    · Le nouveau service worker ATTEND que le joueur accepte la mise à jour :
      on ne recharge jamais quelqu'un en pleine partie.
 
-   ⚠ Change VERSION à CHAQUE dépôt, sinon les joueurs gardent l'ancien jeu.
+   · VERSION ne sert plus qu'à NOMMER le cache et à effacer les anciens.
+     Il n'y a plus à y toucher : la page vient du réseau quand il y en a,
+     et les fichiers gardés se rafraîchissent tout seuls derrière.
    ═══════════════════════════════════════════════════════════════════════ */
 const VERSION = "galgal-v5";
 const COQUILLE = [
@@ -66,13 +68,29 @@ self.addEventListener("fetch", function(e){
     return;
   }
 
+  /* ── LE CACHE SERT, PUIS SE MET À JOUR DERRIÈRE ──────────────────────────
+
+     C'ÉTAIT LE SEUL VRAI PIÈGE DE CE FICHIER. Une icône, un manifeste,
+     n'importe quel fichier déjà gardé était servi depuis le cache POUR
+     TOUJOURS : sans toucher au numéro de version à la main, un fichier
+     corrigé n'arrivait jamais chez ceux qui avaient déjà ouvert le jeu. Et un
+     numéro qu'il faut penser à changer à chaque dépôt finit toujours par
+     être oublié — un jour, quelque part.
+
+     Maintenant on rend tout de suite ce qu'on a, pour que ce soit instantané
+     et que ça marche sans réseau, ET on redemande au serveur derrière : la
+     version corrigée est là dès l'ouverture suivante. Plus rien à
+     incrémenter, plus rien à oublier. */
   e.respondWith(
-    caches.match(req).then(function(m){
-      return m || fetch(req).then(function(res){
-        var copie = res.clone();
-        caches.open(VERSION).then(function(c){ c.put(req, copie); });
+    caches.match(req).then(function (m) {
+      var frais = fetch(req).then(function (res) {
+        if (res && res.ok) {
+          var copie = res.clone();
+          caches.open(VERSION).then(function (c) { c.put(req, copie); });
+        }
         return res;
-      }).catch(function(){ return m; });
+      }).catch(function () { return m; });
+      return m || frais;
     })
   );
 });
