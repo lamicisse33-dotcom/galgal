@@ -1,4 +1,4 @@
-# GALGAL
+# ATOUT VIE
 
 Jeu de cartes KHALAM. Quatre piliers — Spiritualité, Amour, Santé, Argent.
 Chacun ouvre un pilier, pose une carte, la plus forte emporte le pli.
@@ -47,3 +47,4 @@ démarrer depuis `file://`.
 | `apple-touch-icon.png` | icône iPhone |
 
 © 2026 KHALAM (Khadi & Lamine). Tous droits réservés.
+

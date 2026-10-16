@@ -1,6 +1,6 @@
 {
-  "name": "GALGAL — le jeu de cartes",
-  "short_name": "GALGAL",
+  "name": "ATOUT VIE — par KHALAM",
+  "short_name": "ATOUT VIE",
   "description": "Quatre piliers, une carte, la plus forte l'emporte. Un jeu de cartes KHALAM.",
   "lang": "fr",
   "start_url": "./",
@@ -9,10 +9,28 @@
   "orientation": "portrait",
   "background_color": "#0a0714",
   "theme_color": "#0a0714",
-  "categories": ["games", "board"],
+  "categories": [
+    "games",
+    "board"
+  ],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

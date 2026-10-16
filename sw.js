@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   GALGAL — Service Worker
+   ATOUT VIE — Service Worker
    © 2026 KHALAM (Khadi & Lamine). Tous droits réservés.
 
    · Rend le jeu installable et jouable hors ligne.
@@ -13,7 +13,7 @@
      Il n'y a plus à y toucher : la page vient du réseau quand il y en a,
      et les fichiers gardés se rafraîchissent tout seuls derrière.
    ═══════════════════════════════════════════════════════════════════════ */
-const VERSION = "galgal-v5";
+const VERSION = "atout-vie-v6";
 const COQUILLE = [
   "./",
   "./index.html",
@@ -94,3 +94,4 @@ self.addEventListener("fetch", function(e){
     })
   );
 });
+
