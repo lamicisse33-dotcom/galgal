@@ -49,29 +49,21 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 .slot{position:relative;width:100%;aspect-ratio:110/156;border-radius:9px;border:1.5px dashed rgba(201,162,39,.10);
   display:flex;align-items:center;justify-content:center;position:relative}
 .slot.on{border-color:rgba(240,208,96,.6);background:rgba(240,208,96,.05)}
-/* LA BARRE DE BOIS — le bandeau qui porte les emblèmes. Noyer sombre, veiné,
-   liseré d'or en haut et en bas. Elle s'étend d'un bord à l'autre du tapis
-   (marges négatives = la largeur du padding du tapis). */
+/* Le bandeau des emblèmes : caoutchouc noir mat et liserés dorés.
+   Il s'étend d'un bord à l'autre du tapis. */
 .medrang{position:relative;display:grid;grid-template-columns:repeat(4,1fr);
   justify-items:center;gap:4px;align-items:start;
   margin:10px -6px;padding:10px 6px 8px;
-  background:
-    linear-gradient(180deg,rgba(255,225,170,.14) 0 2px,transparent 2px),
-    linear-gradient(0deg,rgba(255,225,170,.10) 0 2px,transparent 2px),
-    linear-gradient(172deg,#4a2c17 0%,#6b4023 22%,#54321a 46%,#7a4b29 68%,#43270f 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,236,196,.28),
-    inset 0 -1px 0 rgba(255,236,196,.18),
-    0 6px 16px rgba(0,0,0,.55);
+  background:linear-gradient(180deg,#18191a 0%,#101112 45%,#090a0b 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),
+    inset 0 -1px 0 rgba(0,0,0,.65),0 6px 16px rgba(0,0,0,.55);
   border-top:1px solid rgba(201,162,39,.85);
   border-bottom:1px solid rgba(201,162,39,.85)}
-/* Le veinage : de fines stries verticales, irrégulières, par-dessus le bois. */
-.medrang::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
-  background:repeating-linear-gradient(93deg,
-    rgba(255,231,190,.07) 0 1px, transparent 1px 5px,
-    rgba(40,20,6,.30)     5px 6px, transparent 6px 13px,
-    rgba(255,231,190,.05) 13px 14px, transparent 14px 22px)}
-/* Le filet d'or, en retrait des bords, comme une marqueterie. */
+/* Un grain fin et peu contrasté donne au noir sa matière caoutchouc. */
+.medrang::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.4;
+  background:radial-gradient(circle,rgba(255,255,255,.08) .5px,transparent .8px) 0 0/3px 3px,
+    radial-gradient(circle,rgba(0,0,0,.4) .5px,transparent .8px) 1.5px 1.5px/3px 3px}
+/* Le filet d'or reste en retrait des bords. */
 .medrang::after{content:"";position:absolute;left:6px;right:6px;top:3px;bottom:3px;
   pointer-events:none;border-radius:3px;
   border:1px solid rgba(201,162,39,.34);

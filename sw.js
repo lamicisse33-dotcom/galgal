@@ -13,7 +13,7 @@
      Il n'y a plus à y toucher : la page vient du réseau quand il y en a,
      et les fichiers gardés se rafraîchissent tout seuls derrière.
    ═══════════════════════════════════════════════════════════════════════ */
-const VERSION = "atout-vie-v8";
+const VERSION = "atout-vie-v9";
 const COQUILLE = [
   "./",
   "./index.html",
