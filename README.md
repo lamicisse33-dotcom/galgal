@@ -18,14 +18,30 @@ Custom domain**, avec un enregistrement CNAME chez ton hébergeur pointant sur
 
 ## À chaque nouvelle version
 
-**Changer `VERSION` dans `sw.js`** — par exemple `galgal-v2`.
+**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v8`.
 
 Sans ce changement, les joueurs gardent l'ancien jeu en cache et ne verront
 jamais la mise à jour. C'est l'erreur la plus fréquente et la plus silencieuse.
 
-Ensuite, au prochain lancement, la bannière « Une nouvelle version est prête »
-s'affiche. Le joueur choisit : mettre à jour tout de suite, ou plus tard —
-on ne recharge jamais quelqu'un en pleine partie.
+Ensuite, la mise à jour est proposée dans les paramètres ⚙️. Le joueur
+choisit quand l'appliquer ; on ne recharge jamais quelqu'un en pleine partie.
+
+## Règles et vérification
+
+L'aide « Comment jouer » se trouve dans les paramètres. Le bouclier couvre
+la manche d'activation et la suivante. Chaque joueur gagne un bonus unique
+de 40 points après avoir remporté une manche dans chacun des quatre piliers.
+Ce bonus n'est pas multiplié. L'ordinateur peut utiliser les quatre jokers,
+sans consulter la main adverse. La durée choisie (8, 10, 12 ou 16 manches)
+est conservée pour les parties suivantes ; elle ne modifie pas la partie en cours.
+
+Exécuter les tests de règles et les simulations avec :
+
+```sh
+node --test tests/regles.test.cjs
+```
+
+Les tests utilisent un DOM simulé et ne remplacent pas une vérification visuelle.
 
 ## Installation sur téléphone
 

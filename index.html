@@ -452,7 +452,7 @@ function melanger(t, rnd) {
 function nouvellePartie(opts = {}) {
   const rnd = opts.rnd || Math.random;
   const paquet = melanger(construirePaquet(), rnd);
-  const joks = melanger(JOKERS, rnd);
+  const joks = melanger(JOKERS.map(j => ({...j})), rnd);
 
   return {
     manche: 1,
@@ -463,10 +463,10 @@ function nouvellePartie(opts = {}) {
     pioche: paquet.slice(20),   // 12 cartes, jamais vues des joueurs
     jokers: { 1: joks.slice(0, 2), 2: joks.slice(2, 4) },
     plis: { "Spiritualité": [], "Amour": [], "Santé": [], "Argent": [] },
-    // Le bouclier engagé : une fenêtre de 1 à 3 manches, dont seules
-    // certaines protègent. Ni son porteur ni l'adversaire ne savent
-    // lesquelles avant la résolution.
+    // Le bouclier protège la manche jouée et la suivante.
     bouclier: { 1: null, 2: null },
+    piliersGagnes: { 1: [], 2: [] },
+    bonusEquilibre: { 1: false, 2: false },
     historique: [],
     rnd,
   };
@@ -604,8 +604,15 @@ function resoudreManche(p, coup) {
     { ...cO, par: ouvreur, gagnePar: gagnant, morte: gagnant !== ouvreur, manche: p.manche },
     { ...cS, par: second,  gagnePar: gagnant, morte: gagnant !== second, manche: p.manche });
 
+  if(!p.piliersGagnes[gagnant].includes(pilierGagnant)) p.piliersGagnes[gagnant].push(pilierGagnant);
+  var bonus=0;
+  if(!p.bonusEquilibre[gagnant] && p.piliersGagnes[gagnant].length===4){
+    bonus=40;p.bonusEquilibre[gagnant]=true;
+    if(gagnant===1)p.s1+=bonus;else p.s2+=bonus;
+  }
+
   p.historique.push({
-    manche: p.manche, ouvreur, gagnant, butin, pilierGagnant, joker, jokers: jok, protege, bloque, perdu,
+    manche: p.manche, ouvreur, gagnant, butin, bonus, pilierGagnant, joker, jokers: jok, protege, bloque, perdu,
     [`p${ouvreur}`]: pilO, [`p${second}`]: pilS,
     [`c${ouvreur}`]: cO,   [`c${second}`]: cS,
     egalite: cO.pts === cS.pts,
@@ -619,31 +626,14 @@ function resoudreManche(p, coup) {
   return p.historique[p.historique.length - 1];
 }
 
-/* Le bouclier couvre AU PLUS trois manches. Dans cette fenêtre, chaque manche
-   est protégée ou non : la protection peut donc être suivie (vrai, vrai, vrai)
-   ou éparse (vrai, faux, vrai). On garantit au moins une manche protégée,
-   sinon le joker ne servirait parfois à rien du tout. */
-function tirerBouclier(rnd) {
-  const duree = 1 + Math.floor(rnd() * 3);          // 1, 2 ou 3
-  let plan;
-  do { plan = []; for (let i = 0; i < duree; i++) plan.push(rnd() < 0.6); }
-  while (!plan.some(Boolean));
-  return { plan, i: 0 };
+/* Deux protections consécutives : la manche d'activation et la suivante. */
+function tirerBouclier(){ return {restantes:2}; }
+function consommerBouclier(p,c){
+  var b=p.bouclier[c];if(!b || b.restantes<=0)return false;
+  if(--b.restantes===0)p.bouclier[c]=null;
+  return true;
 }
-
-/* Consomme une manche de la fenêtre et dit si elle protège. */
-function consommerBouclier(p, c) {
-  const b = p.bouclier[c];
-  if (!b) return false;
-  const actif = !!b.plan[b.i];
-  b.i += 1;
-  if (b.i >= b.plan.length) p.bouclier[c] = null;   // la fenêtre est épuisée
-  return actif;
-}
-
-/* Ce que l'écran a le droit de savoir : qu'un bouclier est engagé, jamais
-   s'il protégera cette manche-ci. */
-function bouclierEngage(p, c) { return !!p.bouclier[c]; }
+function bouclierEngage(p,c){return !!p.bouclier[c];}
 
 function finie(p) { return p.manche > p.total; }
 
@@ -655,56 +645,54 @@ var CLE={"Spiritualité":"spi","Amour":"amo","Santé":"san","Argent":"arg"};
 var TEINTE={"Spiritualité":"#9B59B6","Amour":"#E74C3C","Santé":"#27AE60","Argent":"#F39C12"};
 var P=null, etape="ouvrir", pilJ=null, pilIA=null, cJ=null, cIA=null, dernier=null;
 
-function neuf(){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=nouvellePartie({}); etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
+var manchesSuivantes=10;
+try{var choixDuree=Number(localStorage.getItem('atoutvie_manches'));if([8,10,12,16].includes(choixDuree))manchesSuivantes=choixDuree;}catch(e){}
+var planIA=null;
+function neuf(){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=nouvellePartie({manches:manchesSuivantes}); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
   clearTimeout(minuterie); enchaine=null; jokerArme=null; tour(); }
 
-/* L'IA : prend le pilier où elle a sa plus forte carte. Volontairement simple —
-   l'objectif ici est de vérifier les RÈGLES, pas d'affronter un adversaire. */
+/* L'ordinateur décide avant de connaître la carte ou le joker du joueur.
+   Il utilise sa main, ses piliers gagnés et le pilier annoncé. */
 function iaChoisit(interdit){
-  var pil=null,best=null;
-  piliersOuvrables(P,2).forEach(function(p){
-    if(p===interdit) return;
-    P.mains[2].filter(function(c){return c.pilier===p;}).forEach(function(c){
-      if(!best||c.pts>best.pts){best=c;pil=p;}});
-  });
-  if(!pil){ pil=interdit; best=P.mains[2].filter(function(c){return c.pilier===interdit;})[0]; }
-  return {pil:pil,carte:best};
+  var candidats=P.mains[2].filter(function(c){return c.pilier!==interdit;});
+  var fantome=P.jokers[2].some(function(j){return j.id==='j5';});
+  if(!candidats.length && !fantome)candidats=P.mains[2].slice();
+  var valeur=function(c){return c.pts+(P.piliersGagnes[2].includes(c.pilier)?0:14);};
+  var meilleur=null;
+  candidats.forEach(function(c){if(!meilleur || valeur(c)>valeur(meilleur))meilleur=c;});
+  if(fantome){
+    PILIERS.filter(function(p){return p!==interdit;}).forEach(function(p){
+      var f={id:'fantome',pilier:p,pts:27.5,nom:'Fantôme',fantome:true};
+      if(!meilleur || valeur(f)>valeur(meilleur))meilleur=f;
+    });
+  }
+  return {pil:meilleur?meilleur.pilier:interdit,carte:meilleur};
 }
-
-/* LA MANCHE SE JOUE EN DEUX TEMPS.
-   1. Les DEUX camps choisissent leur pilier. Aucune carte ne peut partir
-      tant que les deux piliers ne sont pas posés.
-   2. Alors seulement les cartes se jouent — l'ouvreur d'abord, donc sa
-      carte est visible avant que l'autre réponde. */
+function jokerIA(carte){
+  if(!carte || carte.fantome)return null;
+  var a=function(id){return P.jokers[2].some(function(j){return j.id===id;});};
+  var derniere=P.manche===P.total;
+  if(a('j1') && (carte.pts<=25 || derniere))return 'j1';
+  if(a('j4') && !bouclierEngage(P,2) && (carte.pts>=30 || P.manche>=P.total-1))return 'j4';
+  if(a('j2') && (carte.pts>=35 || derniere))return 'j2';
+  return null;
+}
+function preparerIA(interdit){
+  if(planIA)return;
+  planIA=iaChoisit(interdit);pilIA=planIA.pil;
+  planIA.joker=jokerIA(planIA.carte);
+}
 function tour(){
-  if(finie(P)) return rendreFin();
-  // Temps 1 : elle ouvre → elle prend son pilier, mais NE POSE PAS encore.
-  if(P.initiative===2 && !pilIA){ pilIA=iaChoisit(null).pil; }
-  etape = pilJ ? "poser" : "pilier";
-  rendre();
+  if(finie(P))return rendreFin();
+  if(P.initiative===2 && !pilIA)preparerIA(null);
+  etape=pilJ?'poser':'pilier';rendre();
 }
-
 function choisirPilier(p){
-  if(etape!=="pilier") return;
-  AUDIO.pilier();
-  pilJ=p;
-  // Temps 1, suite : si c'est toi qui ouvres, elle prend son pilier maintenant.
-  if(!pilIA) pilIA=iaChoisit(pilJ).pil;
-  // Temps 2 : les deux piliers sont posés. Si elle a ouvert, elle pose la
-  // première — sa carte doit être vue avant que tu répondes.
-  if(P.initiative===2 && !cIA) cIA=meilleureDe(2,pilIA);
-  etape="poser";
-  rendre();
-}
-
-/* La meilleure carte qu'un camp détient sur un pilier donné. */
-/* Elle joue ses jokers de temps en temps : sans adversaire qui attaque,
-   le Bouclier n'aurait rien à parer. Volontairement simple. */
-function jokerIA(){
-  var offensifs=P.jokers[2].filter(function(j){return j.id==="j1"||j.id==="j2";});
-  if(!offensifs.length) return null;
-  if(Math.random()>0.35) return null;
-  return offensifs[Math.floor(Math.random()*offensifs.length)].id;
+  if(etape!=='pilier')return;
+  AUDIO.pilier();pilJ=p;
+  preparerIA(pilJ);
+  cIA=planIA.carte;
+  etape='poser';rendre();
 }
 
 function meilleureDe(joueur,pil){
@@ -714,42 +702,26 @@ function meilleureDe(joueur,pil){
   return best;
 }
 
-function jouerCarte(id){
-  if(etape!=="poser") return;                 // pas de carte avant les piliers
-  cJ=P.mains[1].filter(function(c){return c.id===id;})[0];
-  // Tu as ouvert : elle pose sa carte maintenant, après la tienne.
-  if(!cIA) cIA=meilleureDe(2,pilIA);
-  // Garde-fou : si son pilier ne lui laisse aucune carte, elle en reprend un
-  // qu'elle peut jouer. Sans ça la manche se figeait sans rien dire.
-  if(!cIA){ var s2=iaChoisit(pilJ); pilIA=s2.pil; cIA=s2.carte; }
-  if(!cIA){ cIA=P.mains[2][0]; if(cIA) pilIA=cIA.pilier; }
-  if(!cIA) return;
-  var coup={};
-  coup["pilier1"]=pilJ; coup["carte1"]=cJ.id;
-  coup["pilier2"]=pilIA; coup["carte2"]=cIA.id;
-  if(jokerArme) coup["joker"]=jokerArme;
-  var sien=jokerIA();
-  if(sien) coup["joker2"]=sien;
+function terminerCoup(carteId){
+  preparerIA(pilJ);cIA=planIA.carte;
+  if(!cIA)return;
+  var coup={pilier1:pilJ,carte1:carteId,pilier2:pilIA,carte2:cIA.id};
+  if(carteId!=='fantome' && jokerArme)coup.joker=jokerArme;
+  if(planIA.joker)coup.joker2=planIA.joker;
   dernier=resoudreManche(P,coup);
-  jokerArme=null;
-  etape="verdict"; rendre();
+  // Les vraies valeurs des Fantômes sont tirées une seule fois, par le moteur.
+  cJ=dernier.c1;cIA=dernier.c2;
+  jokerArme=null;fantomeArme=false;etape='verdict';sel=null;rendre();
 }
-
-/* Le Fantôme se pose pendant le CHOIX du pilier. Il tient donc lieu de choix
-   ET de carte : il faut d'abord que l'adversaire ait pris son pilier, sinon
-   on résout une manche où il n'a rien posé. C'est ce qui plantait. */
+function jouerCarte(id){
+  if(etape!=='poser')return;
+  var carte=P.mains[1].find(function(c){return c.id===id;});
+  if(!carte || carte.pilier!==pilJ)return;
+  terminerCoup(id);
+}
 function jouerFantomeSur(p){
-  if(etape!=="pilier") return;
-  fantomeArme=false;
-  pilJ=p;
-  if(!pilIA) pilIA=iaChoisit(pilJ).pil;          // elle prend son pilier
-  if(!cIA)   cIA=meilleureDe(2,pilIA);           // puis elle pose
-  if(!cIA){                                       // garde-fou : elle n'a rien
-    etape="poser"; rendre(); return;
-  }
-  var coup={}; coup["pilier1"]=pilJ; coup["carte1"]="fantome";
-  coup["pilier2"]=pilIA; coup["carte2"]=cIA.id;
-  dernier=resoudreManche(P,coup); etape="verdict"; sel=null; rendre();
+  if(etape!=='pilier' || !P.jokers[1].some(function(j){return j.id==='j5';}) || p===pilIA)return;
+  pilJ=p;terminerCoup('fantome');
 }
 
 
@@ -1174,7 +1146,7 @@ var JOKERS_EFFET={
       jouable:function(){ return etape==="poser"; },
       quand:"au moment de poser ta carte"},
   j4:{pret:true, icone:"🛡️", nom:"Bouclier",
-      eff:"Sur cette manche, tu ne peux être ni braqué, ni frappé par un multiplicateur.",
+      eff:"Protège cette manche et la suivante contre le Brakeur et le Multiplicateur adverses.",
       jouable:function(){ return etape==="poser"; },
       quand:"au moment de poser ta carte"}
 };
@@ -1186,7 +1158,7 @@ document.addEventListener("click",function(e){
   if(e.target.classList && e.target.classList.contains("voile")) fermerTableau();
 });
 
-var reglagesOuverts=false;
+var reglagesOuverts=false, aideOuverte=false;
 function ouvrirReglages(){ reglagesOuverts=true; rendre(); }
 function fermerReglages(){ reglagesOuverts=false; rendre(); }
 function reglerEffets(v){ AUDIO.volEffets(+v/100); AUDIO.pose(); }
@@ -1194,7 +1166,7 @@ function reglerMusique(v){
   MUSIQUE.volume(+v/100);
   if(+v>0 && !AUDIO.estMuet()) MUSIQUE.demarre(); else if(+v===0) MUSIQUE.arrete();
 }
-function reglerManches(v){ P.total=+v; rendre(); }
+function reglerManches(v){if(![8,10,12,16].includes(+v))return;manchesSuivantes=+v;try{localStorage.setItem('atoutvie_manches',String(manchesSuivantes));}catch(e){}rendre();}
 
 function reglagesHTML(){
   if(!reglagesOuverts) return "";
@@ -1209,16 +1181,32 @@ function reglagesHTML(){
     +'<div class="regle"><label>Manches par partie</label>'
       +'<select onchange="reglerManches(this.value)">'
       +[8,10,12,16].map(function(n){
-          return '<option value="'+n+'"'+(P.total===n?' selected':'')+'>'+n+' manches</option>';
+          return '<option value="'+n+'"'+(manchesSuivantes===n?' selected':'')+'>'+n+' manches</option>';
         }).join("")
       +'</select></div>'
     +'<div class="note">Le changement de durée prend effet à la partie suivante.</div>'
+    +'<button class="fermer" onclick="reglagesOuverts=false;aideOuverte=true;rendre()">Comment jouer</button>'
     +'<button class="fermer" onclick="basculerSon()">'+(AUDIO.estMuet()?'Activer le son':'Couper le son')+'</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;ouvrirTableau()"'+(P.jokers[1].length?'':' disabled')+'>🃏 Mes jokers ('+P.jokers[1].length+')</button>'
     +(!dejaPosee() ? (invitation ? '<button class="fermer" onclick="document.getElementById(\'poser-oui\').click()">Installer ATOUT VIE</button>' : '<div class="note">Pour installer : '+(surIphone()?'Partager, puis « Sur l’écran d’accueil ».':'menu du navigateur, puis « Installer l’application ».')+'</div>') : '')
     +(swEnAttente?'<button class="fermer" onclick="appliquerMaj()">Mettre à jour le jeu</button>':'')
     +'<button class="fermer" onclick="fermerReglages()">Fermer</button>'
     +'</div></div>';
+}
+
+function aideHTML(){
+  if(!aideOuverte)return '';
+  return '<div class="voile"><div class="tableau" style="font-size:14px;line-height:1.5">'
+    +'<h3>COMMENT JOUER</h3>'
+    +'<p><b>Le but :</b> terminer avec le plus de points. Chacun reçoit 10 cartes et 2 jokers. Les 12 cartes restantes forment la pioche.</p>'
+    +'<p><b>Les quatre piliers :</b> Spiritualité, Amour, Santé et Argent. Chacun contient les valeurs 5, 10, 15, 20, 25, 30, 40 et 50.</p>'
+    +'<p><b>Une manche :</b> choisis un pilier, puis une carte de ce pilier. L’autre joueur doit prendre un pilier différent, sauf s’il ne possède aucune autre possibilité avec ses cartes. La carte adverse reste cachée jusqu’au résultat.</p>'
+    +'<p><b>Les points :</b> la plus forte carte gagne la somme des deux valeurs. À égalité, celui qui ouvre gagne. L’ouverture alterne à chaque manche. Exemple : Santé 40 bat Argent 25 et rapporte 65 points.</p>'
+    +'<p>Les deux cartes sont rangées dans le pilier du vainqueur et ne se rejouent plus. Chacun repioche automatiquement tant que la pioche contient des cartes.</p>'
+    +'<p><b>Bonus Équilibre :</b> remporte au moins une manche dans chacun des quatre piliers pour gagner <b>40 points supplémentaires, une seule fois par partie et par joueur</b>. Capturer une carte d’un autre pilier ne valide pas ce pilier. Ce bonus n’est pas doublé par le Multiplicateur.</p>'
+    +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible.<br><b>Multiplicateur :</b> double le pot, même si l’adversaire le remporte.<br><b>Bouclier :</b> protège la manche d’activation et la suivante contre ces deux jokers. Une attaque bloquée revient en main la première fois ; au deuxième blocage, le joker est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
+    +'<p><b>Durée :</b> 10 manches par défaut. Le choix 8, 10, 12 ou 16 dans les paramètres est conservé pour les prochaines parties. Le score le plus élevé gagne ; des scores identiques donnent une égalité.</p>'
+    +'<button class="fermer" onclick="aideOuverte=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
 }
 
 function basculerSon(){
@@ -1273,12 +1261,15 @@ function enchainer(){
   if(enchaine===dernier.manche) return;
   enchaine=dernier.manche;
   clearTimeout(minuterie);
-  minuterie=setTimeout(function(){
+  minuterie=setTimeout(function avancer(){
+    if(reglagesOuverts || aideOuverte || tableauOuvert || statsOuvertes || document.hidden || !document.getElementById('accesPrive').hidden){
+      minuterie=setTimeout(avancer,500);return;
+    }
     if(etape==="verdict") suivante();
   },2200);
 }
 
-function suivante(){ etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
+function suivante(){ planIA=null; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
   clearTimeout(minuterie); enchaine=null; jokerArme=null; tour(); }
 
 /* La pile d'un pilier : toutes les cartes qu'il a remportées, vainqueurs et
@@ -1346,11 +1337,6 @@ function rendre(){
   var jouables=jouablesMaintenant();
 
   var msg="";
-  // Tu sais que TON bouclier est engagé, jamais quelles manches il couvre.
-  // Rien n'est dit du sien : l'adversaire ne doit pas savoir.
-  if(etape!=="verdict" && bouclierEngage(P,1))
-    msg='🛡️ <b>Ton bouclier est engagé</b><br>'
-      +'<span style="font-size:10px;color:var(--muted)">tu ne sais pas quelles manches il couvre</span>';
   if(jokerArme) msg='<b>'+JOKERS_EFFET[jokerArme].nom+' armé</b> — il s’appliquera à la carte que tu vas poser.';
   if(msg){ }
   else if(etape==="pilier" && !pilIA)
@@ -1368,6 +1354,7 @@ function rendre(){
     msg='<b style="font-size:15px">'+(gagne?"Tu remportes la manche":"Elle remporte la manche")+'</b>'
       +'<br><span style="white-space:nowrap">'+dernier["c1"].pts+' contre '+dernier["c2"].pts
       +' &nbsp;·&nbsp; <b>+'+dernier.butin+' pts</b></span>'
+      +(dernier.bonus?'<br><b style="color:#F0D060">Équilibre des 4 piliers : +40 points !</b>':'')
       +(dernier.egalite?'<br><i style="font-size:11px">égalité — avantage à celui qui a ouvert</i>':'')
       +(function(){
           var j=dernier.jokers||{}, nom=function(id){return JOKERS_EFFET[id]?JOKERS_EFFET[id].nom:id;};
@@ -1384,10 +1371,12 @@ function rendre(){
         })();
   }
 
+  if(etape!=="verdict" && bouclierEngage(P,1))msg+='<br><small>🛡️ Protection : '+P.bouclier[1].restantes+' manche(s) restante(s)</small>';
+
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
-    +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI</span><b>'+P.s1+'</b></div>'
+    +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
     +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">pioche '+P.pioche.length+'</span></div>'
-    +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE</span><b>'+P.s2+'</b></div></div></div>';
+    +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div></div>';
 
   h+='<div class="mat"><div class="rang">';
   PILIERS.forEach(function(p){
@@ -1484,7 +1473,7 @@ function rendre(){
       +' data-id="'+c.id+'" data-p="'+c.pilier+'">'+carteHTML(c)+'</div>';
   });
   h+='</div>';
-  h+=tableauHTML()+reglagesHTML()+statsHTML();
+  h+=tableauHTML()+reglagesHTML()+aideHTML()+statsHTML();
   document.getElementById("app").innerHTML=h;
   // Rien d'un geste précédent ne survit à un rendu : ni carte restée soulevée,
   // ni carte volante orpheline. Sans ça, une carte peut rester figée en grand
@@ -1662,6 +1651,7 @@ function rendreFin(){
           +P.plis[p].map(function(c){return '<div class="mini">'+carteHTML(c)+'</div>';}).join("")
           +'</div></div>';
       }).join("")+'</div>'
+    +'<p>Bonus Équilibre : toi '+(P.bonusEquilibre[1]?'+40':'0')+' · elle '+(P.bonusEquilibre[2]?'+40':'0')+'</p>'
     +'<button class="act" onclick="neuf()">Rejouer</button></div>';
   if(gagne||nul) lancerFeux();
 }
