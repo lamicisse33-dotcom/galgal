@@ -90,14 +90,17 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
   font-family:Cinzel,serif;font-size:8.5px;font-weight:900;color:#0A0711;
   background:linear-gradient(135deg,#F0D060,#C9A227);border-radius:8px;padding:1px 6px;
   box-shadow:0 0 8px rgba(240,208,96,.45);z-index:9}
-/* Message compact : deux lignes tiennent dans la hauteur minimale ;
-   les verdicts plus détaillés peuvent grandir sans être coupés. */
-.msg{flex-shrink:0;text-align:center;font-size:12px;line-height:1.28;
-  height:auto;min-height:56px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;padding:4px 8px;
+/* Bandeau de hauteur constante dans toutes les phases de jeu.
+   Le contenu garde son flux de texte normal : les mots en gras ne doivent
+   pas devenir des lignes séparées. Un verdict long défile à l'intérieur. */
+.msg{flex:0 0 56px;height:56px;min-height:56px;max-height:56px;
+  text-align:center;font-size:12px;line-height:1.28;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  padding:4px 8px;
   border-radius:10px;border:1px solid rgba(201,162,39,.22);
   background:linear-gradient(160deg,rgba(22,16,32,.55),rgba(10,8,18,.55))}
+.msg-content{width:100%;max-height:100%;overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .msg b{color:var(--goldL)}
 .main{flex-shrink:0;box-sizing:border-box;border-radius:12px;padding:6px 4px;border:1px solid rgba(201,162,39,.42);
   background:linear-gradient(160deg,#0f1a14,#080b10);display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
@@ -1413,7 +1416,7 @@ function rendre(){
   });
   h+='</div></div>';
 
-  h+='<div class="msg">'+msg+'</div>';
+  h+='<div class="msg"><div class="msg-content">'+msg+'</div></div>';
 
   // Plus de bouton : la manche suivante s'enchaîne d'elle-même, une fois que
   // le verdict a été lu et que la carte vaincue a rejoint sa pile.
