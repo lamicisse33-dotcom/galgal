@@ -12,7 +12,7 @@ Chacun ouvre un pilier, pose une carte, la plus forte emporte le pli.
    dossier `/ (root)`. Enregistrer.
 4. Attendre deux à trois minutes, puis ouvrir l'adresse fournie.
 
-Le domaine `galgal.khalam.app` se branche ensuite dans **Settings → Pages →
+Le domaine `atoutvie.khalam.app` se branche ensuite dans **Settings → Pages →
 Custom domain**, avec un enregistrement CNAME chez ton hébergeur pointant sur
 `<ton-compte>.github.io`.
 

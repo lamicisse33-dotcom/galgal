@@ -15,15 +15,15 @@
 <meta property="og:site_name" content="KHALAM">
 <meta property="og:title" content="ATOUT VIE — le jeu de cartes KHALAM">
 <meta property="og:description" content="Quatre piliers de la vie, une carte, la plus forte l'emporte. Joue contre la Sage, relève la donne du jour.">
-<meta property="og:url" content="https://galgal.khalam.app/">
-<meta property="og:image" content="https://galgal.khalam.app/partage.png">
+<meta property="og:url" content="https://atoutvie.khalam.app/">
+<meta property="og:image" content="https://atoutvie.khalam.app/partage.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="fr_FR">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="ATOUT VIE — le jeu de cartes KHALAM">
 <meta name="twitter:description" content="Quatre piliers de la vie, une carte, la plus forte l'emporte.">
-<meta name="twitter:image" content="https://galgal.khalam.app/partage.png">
+<meta name="twitter:image" content="https://atoutvie.khalam.app/partage.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -2357,7 +2357,7 @@ function textePartage(){
   return 'ATOUT VIE — '+quoi+' : '+issue+' '+a+' – '+b+'. Et toi ?';
 }
 function partager(){
-  var texte=textePartage(), url='https://galgal.khalam.app/';
+  var texte=textePartage(), url='https://atoutvie.khalam.app/';
   if(navigator.share){navigator.share({title:'ATOUT VIE',text:texte,url:url}).catch(function(){});return;}
   var tout=texte+' '+url;
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(tout).then(function(){toast('Copié — colle-le où tu veux.');},function(){toast(tout);});}

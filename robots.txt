@@ -1,6 +1,6 @@
-# GALGAL — galgal.khalam.app
+# ATOUT VIE — atoutvie.khalam.app
 # Un jeu de KHALAM. Tout est public.
 User-agent: *
 Allow: /
 
-Sitemap: https://galgal.khalam.app/sitemap.xml
+Sitemap: https://atoutvie.khalam.app/sitemap.xml
