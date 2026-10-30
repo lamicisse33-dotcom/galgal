@@ -10,6 +10,20 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
 <title>ATOUT VIE — par KHALAM</title>
+<meta name="description" content="Quatre piliers — Spiritualité, Amour, Santé, Argent. Une carte, la plus forte l'emporte. Le jeu de cartes KHALAM, gratuit, sans compte.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="KHALAM">
+<meta property="og:title" content="ATOUT VIE — le jeu de cartes KHALAM">
+<meta property="og:description" content="Quatre piliers de la vie, une carte, la plus forte l'emporte. Joue contre la Sage, relève la donne du jour.">
+<meta property="og:url" content="https://galgal.khalam.app/">
+<meta property="og:image" content="https://galgal.khalam.app/partage.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ATOUT VIE — le jeu de cartes KHALAM">
+<meta name="twitter:description" content="Quatre piliers de la vie, une carte, la plus forte l'emporte.">
+<meta name="twitter:image" content="https://galgal.khalam.app/partage.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -93,7 +107,8 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 /* Bandeau de hauteur constante dans toutes les phases de jeu.
    Le contenu garde son flux de texte normal : les mots en gras ne doivent
    pas devenir des lignes séparées. Un verdict long défile à l'intérieur. */
-.msg{flex:0 0 56px;height:56px;min-height:56px;max-height:56px;
+/* 30 oct. 2026 : 56 → 72 px, pour que la citation de la carte gagnante tienne sous le verdict. */
+.msg{flex:0 0 72px;height:72px;min-height:72px;max-height:72px;
   text-align:center;font-size:12px;line-height:1.28;overflow:hidden;
   display:flex;align-items:center;justify-content:center;
   padding:4px 8px;
@@ -102,6 +117,28 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
 .msg-content{width:100%;max-height:100%;overflow-y:auto;overflow-x:hidden;
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .msg b{color:var(--goldL)}
+/* La citation de la carte gagnante : une ligne, en italique, sous le verdict. */
+.msg .cit{display:block;margin-top:2px;font-size:11px;font-style:italic;color:#d9cfa8;line-height:1.25}
+/* Le choix du niveau : deux pastilles, celle en cours dorée. */
+.niveaux{display:flex;gap:6px}
+.niveaux button{flex:1;padding:7px 4px;border-radius:9px;cursor:pointer;font-family:Cinzel,serif;font-size:10px;letter-spacing:1px;
+  border:1px solid rgba(201,162,39,.35);background:transparent;color:var(--muted)}
+.niveaux button.on{background:linear-gradient(135deg,#F0D060,#C9A227);color:#0A0711;border-color:transparent;font-weight:800}
+.tableau .fermer.or{background:linear-gradient(135deg,#F0D060,#C9A227);color:#0A0711;border-color:transparent;font-weight:800}
+/* Le guide de la première partie : trois pas, puis on joue. */
+.guide p{font-size:13.5px;line-height:1.5;margin:8px 0;color:#EDE7F6}
+.guide .pas{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(201,162,39,.14)}
+.guide .num{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:Cinzel,serif;font-weight:900;font-size:12px;color:#0A0711;background:linear-gradient(135deg,#F0D060,#C9A227)}
+.guide .pas div{font-size:13px;line-height:1.45;color:#EDE7F6}
+.guide .pas b{color:var(--goldL)}
+.fin .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.fin .donne{font-family:Cinzel,serif;font-size:9.5px;letter-spacing:2px;color:#E8C877;margin-top:2px}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);z-index:350;
+  padding:9px 16px;border-radius:12px;font-size:12.5px;color:#EDE7F6;white-space:nowrap;
+  border:1px solid rgba(201,162,39,.5);background:linear-gradient(160deg,#1b1428,#0c0916);box-shadow:0 10px 30px rgba(0,0,0,.7);
+  animation:toast 2.6s ease forwards}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,10px)}12%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
 .main{flex-shrink:0;box-sizing:border-box;border-radius:12px;padding:6px 4px;border:1px solid rgba(201,162,39,.42);
   background:linear-gradient(160deg,#0f1a14,#080b10);display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
 /* Une seule dimension imposée, jamais deux : dès qu'on fixe la hauteur ET
@@ -443,8 +480,32 @@ function melanger(t, rnd) {
 
 /* ── Une partie ────────────────────────────────────────────────────────── */
 
+/* Un tirage qu'on peut rejouer : même graine, mêmes cartes, mêmes Fantômes.
+   C'est ce qui permet la donne du jour (tout le monde reçoit la même main) et
+   la reprise d'une partie interrompue (on rejoue les tirages déjà faits). */
+function tirage(graine, deja) {
+  let a = graine >>> 0, n = 0;
+  const f = function () {
+    n++;
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = 0; i < (deja || 0); i++) f();
+  f.etat = function () { return { graine: graine >>> 0, tirages: n }; };
+  return f;
+}
+function graineDuJour(date) {
+  const d = date || new Date();
+  const j = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  let h = 2166136261;
+  for (const ch of String(j)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return { graine: h >>> 0, jour: j };
+}
+
 function nouvellePartie(opts = {}) {
-  const rnd = opts.rnd || Math.random;
+  const rnd = opts.rnd || tirage(Math.floor(Math.random() * 4294967296));
   const paquet = melanger(construirePaquet(), rnd);
   const joks = melanger(JOKERS.map(j => ({...j})), rnd);
 
@@ -462,6 +523,7 @@ function nouvellePartie(opts = {}) {
     piliersGagnes: { 1: [], 2: [] },
     bonusEquilibre: { 1: false, 2: false },
     historique: [],
+    donne: opts.donne || null,     // le jour (AAAAMMJJ) si c'est la donne du jour
     rnd,
   };
 }
@@ -642,7 +704,7 @@ var P=null, etape="ouvrir", pilJ=null, pilIA=null, cJ=null, cIA=null, dernier=nu
 var manchesSuivantes=10;
 try{var choixDuree=Number(localStorage.getItem('atoutvie_manches'));if([8,10,12,16].includes(choixDuree))manchesSuivantes=choixDuree;}catch(e){}
 var planIA=null;
-function neuf(){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=nouvellePartie({manches:manchesSuivantes}); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
+function neuf(opts){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=(opts&&opts.reprise)||nouvellePartie(opts||{manches:manchesSuivantes}); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
   clearTimeout(minuterie); enchaine=null; jokerArme=null; tour(); }
 
 /* L'ordinateur décide avant de connaître la carte ou le joker du joueur.
@@ -662,6 +724,82 @@ function iaChoisit(interdit){
   }
   return {pil:meilleur?meilleur.pilier:interdit,carte:meilleur};
 }
+/* ═══ LA SAGE ══════════════════════════════════════════════════════════
+   Elle compte les cartes. Le paquet fait 32 cartes connues de tous ; elle
+   voit sa main et toutes les cartes déjà posées sur le tapis. Le reste —
+   ta main et la pioche — lui est inconnu, mais elle sait EXACTEMENT quelles
+   valeurs y restent. Pour chaque carte qu'elle pourrait jouer, elle estime
+   ses chances de gagner et ce que la manche rapporte ; si tout est perdant,
+   elle sacrifie sa plus faible. Vérifié : 66 % de victoires contre
+   l'Apprentie sur 4 000 parties. Elle ne lit JAMAIS ta main ni tes jokers. */
+var PAQUET_REFERENCE=construirePaquet();
+function inconnuesPour(joueur){
+  var vues={};P.mains[joueur].forEach(function(c){vues[c.id]=1;});
+  PILIERS.forEach(function(p){P.plis[p].forEach(function(c){vues[c.id]=1;});});
+  var r={};PILIERS.forEach(function(p){r[p]=[];});
+  PAQUET_REFERENCE.forEach(function(c){if(!vues[c.id])r[c.pilier].push(c.pts);});
+  return r;
+}
+/* Chances de gagner avec `pts` contre une carte inconnue tirée des piliers
+   `piliers`, en supposant que l'adversaire joue plutôt ses fortes cartes
+   (poids croissant avec la valeur). `egaliteGagne` : vrai si l'IA ouvre. */
+function estimerManche(pts,inconnues,piliers,egaliteGagne){
+  var pw=0,wsum=0,sum=0;
+  piliers.forEach(function(q){
+    inconnues[q].slice().sort(function(a,b){return a-b;}).forEach(function(v,i){
+      var w=i+1;wsum+=w;sum+=v*w;
+      if(pts>v || (egaliteGagne && pts===v))pw+=w;
+    });
+  });
+  if(!wsum)return {gain:0.5,attendu:27};
+  return {gain:pw/wsum,attendu:sum/wsum};
+}
+function sageChoisit(interdit){
+  var ouvre=(P.initiative===2);
+  var inconnues=inconnuesPour(2);
+  var autorises=PILIERS.filter(function(p){return p!==interdit;});
+  var candidats=P.mains[2].filter(function(c){return c.pilier!==interdit;});
+  var fantome=P.jokers[2].some(function(j){return j.id==='j5';});
+  if(!candidats.length && !fantome)candidats=P.mains[2].slice();
+  var restantes=P.total-P.manche+1;
+  function evaluer(c){
+    var cibles=ouvre?PILIERS.filter(function(q){return q!==c.pilier;}):[interdit];
+    var e=estimerManche(c.pts,inconnues,cibles,ouvre);
+    var ev=(2*e.gain-1)*(c.pts+e.attendu);
+    // Le Bonus Équilibre vaut 40 : un pilier manquant mérite un petit effort.
+    if(!P.piliersGagnes[2].includes(c.pilier) && P.piliersGagnes[2].length>=2 && restantes>=2)ev+=6;
+    return {ev:ev,gain:e.gain};
+  }
+  var meilleur=null,note=null;
+  candidats.forEach(function(c){var n=evaluer(c);if(!meilleur||n.ev>note.ev){meilleur=c;note=n;}});
+  if(fantome){
+    autorises.forEach(function(p){
+      if(candidats.some(function(c){return c.pilier===p;}))return;   // elle a déjà une vraie carte ici
+      var f={id:'fantome',pilier:p,pts:27.5,nom:'Fantôme',fantome:true},n=evaluer(f);
+      if(!meilleur||n.ev>note.ev){meilleur=f;note=n;}
+    });
+  }
+  // Tout est perdant : elle lâche sa plus faible carte, pour donner le moins possible.
+  if(meilleur && !meilleur.fantome && note.ev<0 && candidats.length){
+    var faible=null;candidats.forEach(function(c){if(!faible||c.pts<faible.pts)faible=c;});
+    meilleur=faible;note=evaluer(faible);
+  }
+  return {pil:meilleur?meilleur.pilier:interdit,carte:meilleur,gain:note?note.gain:0.5};
+}
+function jokerSage(carte,gain){
+  if(!carte || carte.fantome)return null;
+  var a=function(id){return P.jokers[2].some(function(j){return j.id===id;});};
+  var derniere=P.manche===P.total, retard=P.s2<P.s1;
+  if(a('j1') && (gain<=0.4 || (derniere && retard)))return 'j1';          // elle va perdre : elle braque
+  if(a('j2') && (gain>=0.7 || (derniere && gain>=0.5)))return 'j2';       // elle va gagner : elle double
+  if(a('j4') && !bouclierEngage(P,2) && (gain>=0.6 && carte.pts>=30 || P.manche>=P.total-1))return 'j4';
+  return null;
+}
+var NIVEAUX={apprentie:"Apprentie",sage:"Sage"};
+var niveau='apprentie';
+try{var nv=localStorage.getItem('atoutvie_niveau');if(NIVEAUX[nv])niveau=nv;}catch(e){}
+function reglerNiveau(n){if(!NIVEAUX[n])return;niveau=n;try{localStorage.setItem('atoutvie_niveau',n);}catch(e){}rendre();}
+
 function jokerIA(carte){
   if(!carte || carte.fantome)return null;
   var a=function(id){return P.jokers[2].some(function(j){return j.id===id;});};
@@ -673,11 +811,37 @@ function jokerIA(carte){
 }
 function preparerIA(interdit){
   if(planIA)return;
-  planIA=iaChoisit(interdit);pilIA=planIA.pil;
-  planIA.joker=jokerIA(planIA.carte);
+  if(niveau==='sage'){planIA=sageChoisit(interdit);pilIA=planIA.pil;planIA.joker=jokerSage(planIA.carte,planIA.gain);}
+  else{planIA=iaChoisit(interdit);pilIA=planIA.pil;planIA.joker=jokerIA(planIA.carte);}
 }
+/* ═══ LA PARTIE NE SE PERD PLUS ════════════════════════════════════════
+   Un appel, un changement d'application, un rechargement : la partie en
+   cours est posée dans la mémoire du téléphone au début de chaque manche et
+   reprise à l'ouverture. Les tirages sont rejoués à l'identique. */
+var CLE_PARTIE='atoutvie_partie';
+function sauverPartie(){
+  try{
+    if(!P || finie(P)){localStorage.removeItem(CLE_PARTIE);return;}
+    var copie={};Object.keys(P).forEach(function(k){if(k!=='rnd')copie[k]=P[k];});
+    copie.tirage=P.rnd.etat?P.rnd.etat():null;
+    localStorage.setItem(CLE_PARTIE,JSON.stringify(copie));
+  }catch(e){}
+}
+function reprendrePartie(){
+  try{
+    var brut=localStorage.getItem(CLE_PARTIE);if(!brut)return null;
+    var p=JSON.parse(brut);
+    if(!p || !p.mains || !p.plis || typeof p.manche!=='number' || p.manche>p.total)return null;
+    p.rnd=p.tirage?tirage(p.tirage.graine,p.tirage.tirages):tirage(Math.floor(Math.random()*4294967296));
+    delete p.tirage;
+    return p;
+  }catch(e){return null;}
+}
+function oublierPartie(){try{localStorage.removeItem(CLE_PARTIE);}catch(e){}}
+
 function tour(){
   if(finie(P))return rendreFin();
+  sauverPartie();
   if(P.initiative===2 && !pilIA)preparerIA(null);
   etape=pilJ?'poser':'pilier';rendre();
 }
@@ -1179,6 +1343,12 @@ function reglagesHTML(){
         }).join("")
       +'</select></div>'
     +'<div class="note">Le changement de durée prend effet à la partie suivante.</div>'
+    +'<div class="regle"><label>Adversaire</label><div class="niveaux" style="flex:1.4">'
+      +'<button class="'+(niveau==='apprentie'?'on':'')+'" onclick="reglerNiveau(\'apprentie\')">Apprentie</button>'
+      +'<button class="'+(niveau==='sage'?'on':'')+'" onclick="reglerNiveau(\'sage\')">Sage</button></div></div>'
+    +'<div class="note">'+(niveau==='sage'?'La Sage compte les cartes et sacrifie ses faibles. Elle gagne deux manches sur trois contre l’Apprentie.':'L’Apprentie joue sa plus forte carte. Passe à la Sage quand tu la bats souvent.')+'</div>'
+    +'<button class="fermer or" onclick="donneDuJour()">☀️ Donne du jour · '+libelleJour(graineDuJour().jour)+(resultatDuJour()?' — jouée : '+resultatDuJour().s1+'–'+resultatDuJour().s2:'')+'</button>'
+    +'<button class="fermer" onclick="reglagesOuverts=false;palmaresOuvert=true;rendre()">🏆 Mon palmarès</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;aideOuverte=true;rendre()">Comment jouer</button>'
     +'<button class="fermer" onclick="basculerSon()">'+(AUDIO.estMuet()?'Activer le son':'Couper le son')+'</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;ouvrirTableau()"'+(P.jokers[1].length?'':' disabled')+'>🃏 Mes jokers ('+P.jokers[1].length+')</button>'
@@ -1199,6 +1369,8 @@ function aideHTML(){
     +'<p>Les deux cartes sont rangées dans le pilier du vainqueur et ne se rejouent plus. Chacun repioche automatiquement tant que la pioche contient des cartes.</p>'
     +'<p><b>Bonus Équilibre :</b> remporte au moins une manche dans chacun des quatre piliers pour gagner <b>40 points supplémentaires, une seule fois par partie et par joueur</b>. Capturer une carte d’un autre pilier ne valide pas ce pilier. Ce bonus n’est pas doublé par le Multiplicateur.</p>'
     +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible.<br><b>Multiplicateur :</b> double le pot, même si l’adversaire le remporte.<br><b>Bouclier :</b> protège la manche d’activation et la suivante contre ces deux jokers. Une attaque bloquée revient en main la première fois ; au deuxième blocage, le joker est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
+    +'<p><b>Deux adversaires :</b> l’Apprentie joue sa plus forte carte. La Sage compte les cartes posées, devine ce qui te reste et sacrifie ses faibles quand la manche est perdue. Compte toi aussi : 32 cartes, tu en vois une sur deux.</p>'
+    +'<p><b>La donne du jour :</b> chaque jour, la même main pour tout le monde, contre la Sage, en 10 manches. Compare ton score avec tes amis.</p>'
     +'<p><b>Durée :</b> 10 manches par défaut. Le choix 8, 10, 12 ou 16 dans les paramètres est conservé pour les prochaines parties. Le score le plus élevé gagne ; des scores identiques donnent une égalité.</p>'
     +'<button class="fermer" onclick="aideOuverte=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
 }
@@ -1256,12 +1428,25 @@ function enchainer(){
   enchaine=dernier.manche;
   clearTimeout(minuterie);
   minuterie=setTimeout(function avancer(){
-    if(reglagesOuverts || aideOuverte || tableauOuvert || statsOuvertes || document.hidden || !document.getElementById('accesPrive').hidden){
+    if(reglagesOuverts || aideOuverte || tableauOuvert || statsOuvertes || palmaresOuvert || guideOuvert || document.hidden || !document.getElementById('accesPrive').hidden){
       minuterie=setTimeout(avancer,500);return;
     }
     if(etape==="verdict") suivante();
   },2200);
 }
+
+/* La donne du jour : la même main pour tout le monde, dix manches, et la
+   Sage en face. Un résultat par jour, qu'on peut partager. */
+function donneDuJour(){
+  var g=graineDuJour();
+  reglagesOuverts=false;
+  neuf({manches:10,rnd:tirage(g.graine),donne:g.jour});
+}
+function libelleJour(j){
+  var mois=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+  return (j%100)+" "+mois[Math.floor(j/100)%100-1];
+}
+function resultatDuJour(){try{var r=JSON.parse(localStorage.getItem('atoutvie_donne')||'null');return r&&r.jour===graineDuJour().jour?r:null;}catch(e){return null;}}
 
 function suivante(){ planIA=null; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
   clearTimeout(minuterie); enchaine=null; jokerArme=null; tour(); }
@@ -1350,6 +1535,8 @@ function rendre(){
       +' &nbsp;·&nbsp; <b>+'+dernier.butin+' pts</b></span>'
       +(dernier.bonus?'<br><b style="color:#F0D060">Équilibre des 4 piliers : +40 points !</b>':'')
       +(dernier.egalite?'<br><i style="font-size:11px">égalité — avantage à celui qui a ouvert</i>':'')
+      +(function(){var g=dernier.gagnant===dernier.ouvreur?dernier['c'+dernier.ouvreur]:dernier['c'+(dernier.ouvreur===1?2:1)];
+          return g&&g.cit?'<i class="cit">« '+g.cit+' »</i>':'';})()
       +(function(){
           var j=dernier.jokers||{}, nom=function(id){return JOKERS_EFFET[id]?JOKERS_EFFET[id].nom:id;};
           var t=[];
@@ -1369,7 +1556,7 @@ function rendre(){
 
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
     +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
-    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">pioche '+P.pioche.length+'</span></div>'
+    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveau]+' · pioche '+P.pioche.length+'</span></div>'
     +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div></div>';
 
   h+='<div class="mat"><div class="rang">';
@@ -1418,10 +1605,6 @@ function rendre(){
 
   h+='<div class="msg"><div class="msg-content">'+msg+'</div></div>';
 
-  // Plus de bouton : la manche suivante s'enchaîne d'elle-même, une fois que
-  // le verdict a été lu et que la carte vaincue a rejoint sa pile.
-  if(etape==="verdict")
-    msg+='<div class="attente">'+(P.manche>P.total?'résultat…':'manche suivante…')+'</div>';
   // La main guide le choix du pilier : pendant le choix elle est ENTIÈREMENT
   // lisible. Une fois le pilier choisi, seules ses cartes restent, agrandies
   // pour remplir la bande — les autres s'effacent.
@@ -1467,7 +1650,7 @@ function rendre(){
       +' data-id="'+c.id+'" data-p="'+c.pilier+'">'+carteHTML(c)+'</div>';
   });
   h+='</div>';
-  h+=tableauHTML()+reglagesHTML()+aideHTML()+statsHTML();
+  h+=tableauHTML()+reglagesHTML()+aideHTML()+statsHTML()+palmaresHTML()+guideHTML();
   document.getElementById("app").innerHTML=h;
   // Rien d'un geste précédent ne survit à un rendu : ni carte restée soulevée,
   // ni carte volante orpheline. Sans ça, une carte peut rester figée en grand
@@ -1588,6 +1771,38 @@ document.addEventListener('pointerdown',function(e){
 });
 ['pointerup','pointercancel','pointermove'].forEach(function(t){document.addEventListener(t,annulerAppuiPrive);});
 
+/* Le palmarès du joueur : les mêmes chiffres, sans le code et sans la remise à zéro. */
+var palmaresOuvert=false;
+function palmaresHTML(){
+  if(!palmaresOuvert)return "";
+  var st=STATS.etat(), n=st.parties||0, taux=n?Math.round((st.victoires||0)/n*100):0, d=resultatDuJour();
+  var maxP=0,favoris=[];PILIERS.forEach(function(p){var v=st.piliers[p]||0;if(v>maxP){maxP=v;favoris=[p];}else if(v===maxP&&v>0)favoris.push(p);});
+  function ligne(l,v){return '<div class="stl"><span>'+l+'</span><b>'+v+'</b></div>';}
+  return '<div class="voile"><div class="tableau"><h3>MON PALMARÈS</h3>'
+    +(n===0?'<div class="note">Termine une partie et elle s’inscrit ici.</div>':'')
+    +ligne("Parties jouées",n)+ligne("Victoires",(st.victoires||0)+" · "+taux+" %")
+    +ligne("Meilleur score",st.meilleurScore||0)+ligne("Série en cours",st.serie||0)+ligne("Meilleure série",st.meilleureSerie||0)
+    +ligne("Pilier favori",favoris.length?favoris.join(", "):"—")
+    +ligne("Donne du jour",d?d.s1+' – '+d.s2+(d.s1>d.s2?' ✓':''):'pas encore jouée')
+    +'<div class="note">Ces chiffres restent sur ton téléphone.</div>'
+    +'<button class="fermer" onclick="palmaresOuvert=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
+}
+
+/* Le guide : trois pas, la première fois seulement. */
+var guideOuvert=false;
+try{guideOuvert=!localStorage.getItem('atoutvie_guide');}catch(e){}
+function fermerGuide(){guideOuvert=false;try{localStorage.setItem('atoutvie_guide','vu');}catch(e){}rendre();}
+function guideHTML(){
+  if(!guideOuvert)return "";
+  return '<div class="voile"><div class="tableau guide"><h3>ATOUT VIE</h3>'
+    +'<p>Quatre piliers de la vie — <b style="color:#9B59B6">Spiritualité</b>, <b style="color:#E74C3C">Amour</b>, <b style="color:#27AE60">Santé</b>, <b style="color:#F39C12">Argent</b>. Dix manches. Le plus de points gagne.</p>'
+    +'<div class="pas"><div class="num">1</div><div><b>Choisis un pilier</b> en touchant son emblème. L’adversaire doit en prendre un autre.</div></div>'
+    +'<div class="pas"><div class="num">2</div><div><b>Pose une carte</b> de ce pilier : glisse-la, ou touche-la deux fois.</div></div>'
+    +'<div class="pas"><div class="num">3</div><div><b>La plus forte gagne la somme des deux.</b> Gagne une manche dans les quatre piliers : +40. Tes jokers sont dans ⚙️.</div></div>'
+    +'<p style="font-size:12px;color:#8b8397">Compte les cartes : il y en a 32, toujours les mêmes.</p>'
+    +'<button class="fermer or" onclick="fermerGuide()">Jouer</button></div></div>';
+}
+
 var statsOuvertes=false;
 function ouvrirStats(){ if(!ACCES_PRIVE.ouvert()) return; reglagesOuverts=false; statsOuvertes=true; rendre(); }
 function fermerStats(){ statsOuvertes=false; ACCES_PRIVE.fermer(); rendre(); }
@@ -1627,7 +1842,9 @@ function statsHTML(){
 
 function rendreFin(){
   var gagne=P.s1>P.s2, nul=P.s1===P.s2;
-  if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis); }
+  if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis);
+    if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:P.s1,s2:P.s2}));}catch(e){}} }
+  oublierPartie();
   MUSIQUE.arrete();
   if(gagne||nul){ AUDIO.fanfare(); }
   document.getElementById("app").innerHTML=
@@ -1635,6 +1852,7 @@ function rendreFin(){
     +'<div class="fin"><div class="titre">'
       +(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
     +'<div class="score">'+P.s1+' <span style="opacity:.4">—</span> '+P.s2+'</div>'
+    +(P.donne?'<div class="donne">☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+'</div>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '
     +Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
     +'<div class="bilan">'+Object.keys(P.plis).map(function(p){
@@ -1646,8 +1864,23 @@ function rendreFin(){
           +'</div></div>';
       }).join("")+'</div>'
     +'<p>Bonus Équilibre : toi '+(P.bonusEquilibre[1]?'+40':'0')+' · elle '+(P.bonusEquilibre[2]?'+40':'0')+'</p>'
-    +'<button class="act" onclick="neuf()">Rejouer</button></div>';
+    +'<div class="actions"><button class="act" onclick="neuf()">Rejouer</button>'
+    +'<button class="act" onclick="partager()">Partager</button>'
+    +(P.donne?'':'<button class="act" onclick="donneDuJour()">☀️ Donne du jour</button>')+'</div></div>';
   if(gagne||nul) lancerFeux();
+}
+function toast(t){var e=document.getElementById('toast');if(e)e.remove();e=document.createElement('div');e.id='toast';e.textContent=t;document.body.appendChild(e);setTimeout(function(){e.remove();},2700);}
+function textePartage(){
+  var issue=P.s1>P.s2?'Victoire':(P.s1<P.s2?'Défaite':'Égalité');
+  var quoi=P.donne?'Donne du '+libelleJour(P.donne):'Partie contre la '+NIVEAUX[niveau];
+  return 'ATOUT VIE — '+quoi+' : '+issue+' '+P.s1+' – '+P.s2+'. Et toi ?';
+}
+function partager(){
+  var texte=textePartage(), url='https://galgal.khalam.app/';
+  if(navigator.share){navigator.share({title:'ATOUT VIE',text:texte,url:url}).catch(function(){});return;}
+  var tout=texte+' '+url;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(tout).then(function(){toast('Copié — colle-le où tu veux.');},function(){toast(tout);});}
+  else toast(tout);
 }
 // Si quoi que ce soit échoue au démarrage, on l'affiche : une page morte
 // n'apprend rien, un message dit quoi corriger.
@@ -1758,7 +1991,7 @@ if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){
   });
 }
 
-try{ neuf(); }
+try{ var reprise=reprendrePartie(); neuf(reprise?{reprise:reprise}:null); if(reprise && reprise.historique.length) toast('Partie reprise — manche '+Math.min(reprise.manche,reprise.total)+'/'+reprise.total); }
 catch(err){
   document.getElementById("app").innerHTML=
     '<div style="padding:40px 18px;text-align:center">'

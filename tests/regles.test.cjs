@@ -2,9 +2,10 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const test=require('node:test'),assert=require('node:assert/strict');
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 function jeu(saved={}){
+  if(!("atoutvie_guide" in saved))saved.atoutvie_guide="vu";
   const nodes=new Map(),timers=new Map();let tid=0;
   function node(){return {hidden:true,style:{},innerHTML:'',querySelector:()=>null,classList:{add(){},remove(){}},getBoundingClientRect:()=>({width:390,height:100,left:0,top:0})};}
-  const ctx={console,Math,Date,Set,Map,JSON,Promise,navigator:{userAgent:'iPhone',platform:'iPhone'},location:{protocol:'https:'},innerWidth:390,innerHeight:844,matchMedia:()=>({matches:false}),localStorage:{getItem:k=>saved[k]??null,setItem:(k,v)=>saved[k]=v},setTimeout(f,ms){timers.set(++tid,{f,ms});return tid;},clearTimeout:id=>timers.delete(id),setInterval(){},clearInterval(){},requestAnimationFrame(){},addEventListener(){},document:{hidden:false,addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},querySelector:()=>null,querySelectorAll:()=>[],body:{appendChild(){}},createElement:node}};
+  const ctx={console,Math,Date,Set,Map,JSON,Promise,navigator:{userAgent:'iPhone',platform:'iPhone'},location:{protocol:'https:'},innerWidth:390,innerHeight:844,matchMedia:()=>({matches:false}),localStorage:{getItem:k=>saved[k]??null,setItem:(k,v)=>saved[k]=v,removeItem:k=>{delete saved[k];}},setTimeout(f,ms){timers.set(++tid,{f,ms});return tid;},clearTimeout:id=>timers.delete(id),setInterval(){},clearInterval(){},requestAnimationFrame(){},addEventListener(){},document:{hidden:false,addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},querySelector:()=>null,querySelectorAll:()=>[],body:{appendChild(){}},createElement:node}};
   ctx.window=ctx;vm.createContext(ctx);
   for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g))vm.runInContext(m[1],ctx);
   return {c:ctx,nodes,timers,saved};
@@ -97,4 +98,57 @@ test('160 parties complètes : 8, 10, 12 et 16 manches, scores et cartes cohére
     const ordinaires=[...c.P.mains[1],...c.P.mains[2],...c.P.pioche,...Object.values(c.P.plis).flat()].filter(c=>!c.fantome);
     assert.equal(ordinaires.length,32);assert.equal(new Set(ordinaires.map(c=>c.id)).size,32);
   }
+});
+
+/* ── Ajouts du 30 octobre 2026 : Sage, donne du jour, reprise, citation, palmarès ── */
+function partieGloutonne(c,rnd){
+  c.neuf();c.P=c.nouvellePartie({manches:10,rnd});c.tour();
+  while(!c.finie(c.P)){
+    const P=c.P,options=c.pilIA?c.piliersRepondables(P,1,c.pilIA):c.piliersOuvrables(P,1);
+    let best=null;for(const p of options)for(const x of P.mains[1])if(x.pilier===p&&(!best||x.pts>best.pts))best=x;
+    c.choisirPilier(best.pilier);
+    const j=P.jokers[1].find(j=>j.id!=='j5');
+    if(j){if(j.id==='j1'&&best.pts<=20)c.jokerArme='j1';if(j.id!=='j1'&&best.pts>=40)c.jokerArme=j.id;}
+    c.jouerCarte(best.id);c.suivante();
+  }
+  return c.P.s1>c.P.s2;
+}
+test('la Sage ne lit ni la main ni les jokers adverses',()=>{
+  const {c}=jeu({atoutvie_niveau:'sage'});assert.equal(c.niveau,'sage');
+  Object.defineProperty(c.P.mains,1,{get(){throw Error('main adverse consultée');}});
+  Object.defineProperty(c.P.jokers,1,{get(){throw Error('jokers adverses consultés');}});
+  c.preparerIA('Santé');assert.ok(c.planIA.carte);assert.ok(c.planIA.gain>=0&&c.planIA.gain<=1);
+});
+test('la Sage est nettement plus forte que l’Apprentie (600 parties chacune)',()=>{
+  const joue=(niveau)=>{const {c}=jeu({atoutvie_niveau:niveau});c.rendreFin=()=>{};let seed=4242;const rnd=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+    let w=0;for(let i=0;i<600;i++)if(partieGloutonne(c,rnd))w++;return w/600;};
+  const vsApprentie=joue('apprentie'),vsSage=joue('sage');
+  assert.ok(vsApprentie>0.45,'Apprentie trop forte : '+vsApprentie);
+  assert.ok(vsSage<vsApprentie-0.08,'la Sage ne domine pas : '+vsSage+' contre '+vsApprentie);
+});
+test('donne du jour : même graine, mêmes mains, mêmes Fantômes',()=>{
+  const {c}=jeu();const g=c.graineDuJour(new Date(2026,9,30));
+  assert.equal(g.jour,20261030);assert.equal(g.graine,c.graineDuJour(new Date(2026,9,30)).graine);
+  const a=c.nouvellePartie({rnd:c.tirage(g.graine)}),b=c.nouvellePartie({rnd:c.tirage(g.graine)});
+  assert.equal(a.mains[1].map(x=>x.id).join(),b.mains[1].map(x=>x.id).join());assert.equal(JSON.stringify(a.jokers),JSON.stringify(b.jokers));
+  assert.equal(c.jouerFantome(a,a.jokers[1].some(j=>j.id==='j5')?1:2,'Amour').pts,c.jouerFantome(b,b.jokers[1].some(j=>j.id==='j5')?1:2,'Amour').pts);
+  c.donneDuJour();assert.equal(c.P.donne,c.graineDuJour().jour);assert.equal(c.P.total,10);
+  assert.ok(c.reglagesHTML.call(Object.assign(c,{reglagesOuverts:true})).includes('Donne du jour'));
+});
+test('reprise : une partie interrompue reprend à la même manche, avec les mêmes cartes',()=>{
+  const {c,saved}=jeu();c.choisirPilier(c.P.mains[1][0].pilier);c.jouerCarte(c.P.mains[1].find(x=>x.pilier===c.pilJ).id);c.suivante();
+  assert.equal(c.P.manche,2);const mains=c.P.mains[1].map(x=>x.id).join(),s=c.P.s1+'-'+c.P.s2;
+  const r=jeu(saved);assert.equal(r.c.P.manche,2);assert.equal(r.c.P.mains[1].map(x=>x.id).join(),mains);assert.equal(r.c.P.s1+'-'+r.c.P.s2,s);
+  assert.equal(typeof r.c.P.rnd,'function');
+  // Une partie terminée n'est pas reprise.
+  r.c.P.manche=r.c.P.total+1;r.c.tour();assert.equal(saved.atoutvie_partie,undefined);
+});
+test('verdict : la citation de la carte gagnante est affichée',()=>{
+  const {c,nodes}=jeu();c.choisirPilier(c.P.mains[1][0].pilier);c.jouerCarte(c.P.mains[1].find(x=>x.pilier===c.pilJ).id);
+  const d=c.dernier,g=d.gagnant===d.ouvreur?d['c'+d.ouvreur]:d['c'+(d.ouvreur===1?2:1)];
+  assert.ok(nodes.get('app').innerHTML.includes('« '+g.cit+' »'));
+});
+test('palmarès visible sans code ; guide à la première ouverture seulement',()=>{
+  const {c,nodes}=jeu({});c.palmaresOuvert=true;c.rendre();assert.match(nodes.get('app').innerHTML,/MON PALMARÈS/);
+  const g=jeu({atoutvie_guide:undefined});assert.equal(g.c.guideOuvert,true);g.c.fermerGuide();assert.equal(g.saved.atoutvie_guide,'vu');assert.equal(jeu(g.saved).c.guideOuvert,false);
 });

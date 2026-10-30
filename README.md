@@ -18,7 +18,7 @@ Custom domain**, avec un enregistrement CNAME chez ton hébergeur pointant sur
 
 ## À chaque nouvelle version
 
-**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v8`.
+**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v11` (la version déposée le 30 octobre 2026 est `atout-vie-v10`).
 
 Sans ce changement, les joueurs gardent l'ancien jeu en cache et ne verront
 jamais la mise à jour. C'est l'erreur la plus fréquente et la plus silencieuse.
@@ -34,6 +34,19 @@ de 40 points après avoir remporté une manche dans chacun des quatre piliers.
 Ce bonus n'est pas multiplié. L'ordinateur peut utiliser les quatre jokers,
 sans consulter la main adverse. La durée choisie (8, 10, 12 ou 16 manches)
 est conservée pour les parties suivantes ; elle ne modifie pas la partie en cours.
+
+Deux adversaires : l'**Apprentie** joue sa plus forte carte ; la **Sage** compte
+les cartes posées, estime ce qui reste dans la main adverse et sacrifie ses
+faibles quand la manche est perdue (66 % de victoires contre l'Apprentie sur
+4 000 parties simulées). Ni l'une ni l'autre ne lit la main du joueur — un
+test le garantit.
+
+La **donne du jour** (⚙️) distribue la même main à tout le monde, contre la
+Sage, en 10 manches ; le résultat se partage depuis l'écran de fin. Une
+partie interrompue (appel, rechargement) **reprend à la même manche**. La
+citation de la carte gagnante s'affiche à chaque verdict. Le joueur a son
+palmarès dans ⚙️ ; le tableau de bord complet reste derrière le code maître
+(appui long sur le titre).
 
 Exécuter les tests de règles et les simulations avec :
 
