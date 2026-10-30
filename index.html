@@ -90,11 +90,10 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
   font-family:Cinzel,serif;font-size:8.5px;font-weight:900;color:#0A0711;
   background:linear-gradient(135deg,#F0D060,#C9A227);border-radius:8px;padding:1px 6px;
   box-shadow:0 0 8px rgba(240,208,96,.45);z-index:9}
-/* LA BANDE DE TEXTE — hauteur FIXE. Tous les messages y passent : consigne,
-   verdict, joker armé, bouclier, attente. Elle ne change jamais de taille,
-   donc rien ne bouge autour d'elle. */
+/* Message compact : deux lignes tiennent dans la hauteur minimale ;
+   les verdicts plus détaillés peuvent grandir sans être coupés. */
 .msg{flex-shrink:0;text-align:center;font-size:12px;line-height:1.28;
-  height:86px;overflow:hidden;
+  height:auto;min-height:56px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:2px;padding:4px 8px;
   border-radius:10px;border:1px solid rgba(201,162,39,.22);
