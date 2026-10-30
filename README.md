@@ -18,7 +18,7 @@ Custom domain**, avec un enregistrement CNAME chez ton hébergeur pointant sur
 
 ## À chaque nouvelle version
 
-**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v11` (la version déposée le 30 octobre 2026 est `atout-vie-v10`).
+**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v11` (la version déposée le 30 octobre 2026 au soir est `atout-vie-v11`).
 
 Sans ce changement, les joueurs gardent l'ancien jeu en cache et ne verront
 jamais la mise à jour. C'est l'erreur la plus fréquente et la plus silencieuse.
@@ -47,6 +47,27 @@ partie interrompue (appel, rechargement) **reprend à la même manche**. La
 citation de la carte gagnante s'affiche à chaque verdict. Le joueur a son
 palmarès dans ⚙️ ; le tableau de bord complet reste derrière le code maître
 (appui long sur le titre).
+
+## La table à 4
+
+Dans ⚙️, **Mode de jeu : Table à 4**. Toi et Nord (ton partenaire) contre
+Est et Ouest, tenus par la Sage. 8 cartes chacun, pas de pioche, 8 manches,
+un joker chacun. L'ouvreur — tiré au sort à la première manche, puis à tour
+de rôle — pose face cachée ; chacun prend ensuite un pilier encore libre.
+La plus forte des quatre cartes gagne la somme des quatre pour son équipe.
+
+**Contester** : au lieu d'un pilier libre, on prend le pilier d'un
+adversaire (jamais celui du partenaire) et on pose dessus. Le jeu ne vérifie
+pas la carte : c'est le bluff. En fin de manche, la plus forte des deux
+cartes du pilier contesté gagne leur somme, en plus du pot. Une carte posée
+sur un pilier qui n'est pas le sien vaut 0 — dans la manche comme dans la
+contestation. C'est aussi la seule issue quand on n'a aucune carte d'un
+pilier libre. Le Bouclier protège les deux coéquipiers.
+
+Points tranchés le 30 octobre 2026 (marqués « TRANCHÉ » dans le code, pour
+en rediscuter) : 8 cartes sans pioche ; la carte morte vaut 0 ; un pilier ne
+se conteste qu'une fois ; premier ouvreur tiré au sort (sinon ton équipe
+gagnait 58 % des parties simulées ; tiré au sort, 51 %).
 
 Exécuter les tests de règles et les simulations avec :
 

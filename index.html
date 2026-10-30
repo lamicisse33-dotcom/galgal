@@ -118,6 +118,15 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .msg b{color:var(--goldL)}
 /* La citation de la carte gagnante : une ligne, en italique, sous le verdict. */
+.qui{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);z-index:7;white-space:nowrap;
+  font-family:Cinzel,serif;font-size:7.5px;font-weight:900;letter-spacing:.5px;padding:1px 6px;border-radius:7px;color:#0A0711}
+.qui.nous{background:linear-gradient(135deg,#F0D060,#C9A227)}
+.qui.eux{background:linear-gradient(135deg,#ff9a9a,#e05555);color:#fff}
+.slot .dessus.deux{transform:translate(13%,17%) rotate(6deg) scale(.9);transform-origin:top left;z-index:6}
+.slot .dessus.deux .qui{bottom:auto;top:-5px}
+/* À quatre, le verdict a plus à dire : manche, contestation, jokers, citation. */
+.msg.haute{flex-basis:94px;height:94px;min-height:94px;max-height:94px}
+.med.contest .rond{border-color:#ff8a8a;box-shadow:0 0 16px rgba(224,85,85,.7)}
 .msg .cit{display:block;margin-top:2px;font-size:11px;font-style:italic;color:#d9cfa8;line-height:1.25}
 /* Le choix du niveau : deux pastilles, celle en cours dorée. */
 .niveaux{display:flex;gap:6px}
@@ -704,7 +713,7 @@ var P=null, etape="ouvrir", pilJ=null, pilIA=null, cJ=null, cIA=null, dernier=nu
 var manchesSuivantes=10;
 try{var choixDuree=Number(localStorage.getItem('atoutvie_manches'));if([8,10,12,16].includes(choixDuree))manchesSuivantes=choixDuree;}catch(e){}
 var planIA=null;
-function neuf(opts){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=(opts&&opts.reprise)||nouvellePartie(opts||{manches:manchesSuivantes}); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
+function neuf(opts){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=(opts&&opts.reprise)||(((opts&&opts.mode)||modeJeu)==='table4'?nouvelleTable4(opts||{}):nouvellePartie(opts||{manches:manchesSuivantes})); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
   clearTimeout(minuterie); enchaine=null; jokerArme=null; tour(); }
 
 /* L'ordinateur décide avant de connaître la carte ou le joker du joueur.
@@ -841,11 +850,13 @@ function oublierPartie(){try{localStorage.removeItem(CLE_PARTIE);}catch(e){}}
 
 function tour(){
   if(finie(P))return rendreFin();
+  if(P.mode==='table4')return tour4();
   sauverPartie();
   if(P.initiative===2 && !pilIA)preparerIA(null);
   etape=pilJ?'poser':'pilier';rendre();
 }
 function choisirPilier(p){
+  if(P.mode==='table4')return choisirPilier4(p);
   if(etape!=='pilier')return;
   AUDIO.pilier();pilJ=p;
   preparerIA(pilJ);
@@ -872,15 +883,475 @@ function terminerCoup(carteId){
   jokerArme=null;fantomeArme=false;etape='verdict';sel=null;rendre();
 }
 function jouerCarte(id){
+  if(P.mode==='table4')return jouerCarte4(id);
   if(etape!=='poser')return;
   var carte=P.mains[1].find(function(c){return c.id===id;});
   if(!carte || carte.pilier!==pilJ)return;
   terminerCoup(id);
 }
 function jouerFantomeSur(p){
+  if(P.mode==='table4')return jouerFantome4(p);
   if(etape!=='pilier' || !P.jokers[1].some(function(j){return j.id==='j5';}) || p===pilIA)return;
   pilJ=p;terminerCoup('fantome');
 }
+
+
+/* ═══ LA TABLE À 4 ═════════════════════════════════════════════════════
+   Deux équipes de deux, comme à la belote : TOI et NORD (ton partenaire)
+   contre EST et OUEST. Règles fixées par Lamine en août 2026, points
+   restés ouverts tranchés ici le 30 octobre 2026 — chaque choix est
+   marqué « TRANCHÉ » pour qu'on puisse le rediscuter.
+
+     · 32 cartes, 8 chacun, pas de pioche → 8 manches (TRANCHÉ : 32/4 = 8,
+       il ne reste rien à piocher ; trois mains cachées suffisent au bluff).
+     · Un joker chacun, les quatre distribués au hasard.
+     · L'ouvreur tourne. Il choisit un pilier et pose face cachée. Puis,
+       dans le sens de la table (Toi → Est → Nord → Ouest), chacun prend un
+       pilier ENCORE LIBRE et pose. Quatre joueurs, quatre piliers.
+     · Les quatre cartes sont retournées ensemble. La plus forte emporte
+       la manche : la somme des quatre pour son ÉQUIPE. Égalité → le
+       premier posé.
+     · CONTESTER : au lieu d'un pilier libre, on peut prendre le pilier
+       déjà pris par un ADVERSAIRE (jamais celui du partenaire). On
+       l'annonce, c'est irrévocable, et le jeu NE VÉRIFIE PAS qu'on a une
+       carte de ce pilier. Sa carte compte dans la manche comme les
+       autres. En fin de manche, la contestation se règle à part : la plus
+       forte des deux cartes posées sur ce pilier (égalité → le premier
+       posé) gagne, et la SOMME des cartes posées sur ce pilier va à son
+       équipe, en plus du pot de la manche. Un pilier ne se conteste
+       qu'une fois.
+     · CARTE MORTE (TRANCHÉ) : une carte posée sur un pilier qui n'est pas
+       le sien vaut 0 — dans la manche et dans la contestation. C'est le
+       prix du bluff, et la seule sortie quand on n'a aucune carte d'un
+       pilier libre : on pose alors n'importe quelle carte sur un pilier
+       libre, elle vaut 0.
+     · Jokers : Brakeur → son équipe rafle le pot ; Multiplicateur → le pot
+       double ; Bouclier → deux manches de protection pour SON ÉQUIPE
+       contre ces deux-là (un joker bloqué revient, brisé au second
+       blocage) ; Fantôme → n'importe quel pilier, 5 à 50 à la pose.
+     · Bonus Équilibre : une manche gagnée dans chacun des quatre piliers
+       → +40 pour l'équipe, une fois par partie.
+   ═══════════════════════════════════════════════════════════════════════ */
+var EQUIPE={1:"nous",2:"eux",3:"nous",4:"eux"};
+var SIEGE={1:"Toi",2:"Est",3:"Nord",4:"Ouest"};
+function partenaireDe(j){return j===1?3:j===3?1:j===2?4:2;}
+function ordreManche4(p){var o=[];for(var i=0;i<4;i++)o.push((p.ouvreur-1+i)%4+1);return o;}
+
+function nouvelleTable4(opts){
+  opts=opts||{};
+  var rnd=opts.rnd||tirage(Math.floor(Math.random()*4294967296));
+  var paquet=melanger(construirePaquet(),rnd);
+  var joks=melanger(JOKERS.map(function(j){return Object.assign({},j);}),rnd);
+  return {
+    /* TRANCHÉ : le premier ouvreur est tiré au sort. Mesuré sur 2 000 parties :
+       avec Toi toujours premier, ton équipe gagnait 58 % ; tiré au sort, 51 %. */
+    mode:"table4", manche:1, total:8, ouvreur:1+Math.floor(rnd()*4),
+    scores:{nous:0,eux:0},
+    mains:{1:paquet.slice(0,8),2:paquet.slice(8,16),3:paquet.slice(16,24),4:paquet.slice(24,32)},
+    pioche:[],
+    jokers:{1:[joks[0]],2:[joks[1]],3:[joks[2]],4:[joks[3]]},
+    plis:{"Spiritualité":[],"Amour":[],"Santé":[],"Argent":[]},
+    bouclier:{1:null,2:null,3:null,4:null},
+    piliersGagnes:{nous:[],eux:[]},
+    bonusEquilibre:{nous:false,eux:false},
+    historique:[], donne:opts.donne||null, rnd:rnd
+  };
+}
+
+/* Ce qu'un joueur peut faire, vu l'état de la manche (`coups` = ce qui a
+   déjà été posé, dans l'ordre). Retourne {libres, contestables, mortes,
+   fantome} : les piliers libres où il a une carte, les piliers adverses
+   qu'il peut contester, les piliers libres où il devrait poser une carte
+   morte (seulement s'il n'a de carte d'aucun pilier libre), et ceux que le
+   Fantôme ouvre en plus. */
+function options4(p,joueur,coups){
+  var pris={};coups.forEach(function(c){pris[c.pilier]=pris[c.pilier]||[];pris[c.pilier].push(c);});
+  var libres=PILIERS.filter(function(x){return !pris[x];});
+  var avecCarte=libres.filter(function(x){return p.mains[joueur].some(function(c){return c.pilier===x;});});
+  var contestables=PILIERS.filter(function(x){
+    var l=pris[x];if(!l||l.length!==1)return false;            // pris une fois, pas encore contesté
+    return EQUIPE[l[0].joueur]!==EQUIPE[joueur];               // par un adversaire
+  });
+  var fantome=p.jokers[joueur].some(function(j){return j.id==="j5";});
+  return {libres:libres,avecCarte:avecCarte,contestables:contestables,
+          mortes:avecCarte.length?[]:libres,
+          fantome:fantome?libres.concat(contestables):[]};
+}
+
+/* coups : [{joueur, pilier, carte (id ou "fantome"), joker (id ou null)}]
+   dans l'ordre de pose. Tout est vérifié ; une faute arrête net. */
+function resoudreManche4(p,coups){
+  var ordre=ordreManche4(p);
+  if(coups.length!==4)throw new Error("il faut quatre coups");
+  coups.forEach(function(c,i){if(c.joueur!==ordre[i])throw new Error("ce n'est pas le tour du joueur "+c.joueur);});
+  var poses=[];
+  coups.forEach(function(c){
+    var o=options4(p,c.joueur,poses);
+    var conteste=o.contestables.indexOf(c.pilier)>=0 && o.libres.indexOf(c.pilier)<0;
+    var fantome=c.carte==="fantome";
+    if(fantome){
+      if(o.fantome.indexOf(c.pilier)<0)throw new Error("le Fantôme ne peut pas aller sur "+c.pilier);
+    }else if(!conteste && o.libres.indexOf(c.pilier)<0){
+      throw new Error("le joueur "+c.joueur+" ne peut pas prendre "+c.pilier);
+    }
+    var carte=fantome?jouerFantome(p,c.joueur,c.pilier):retirerDeLaMain(p,c.joueur,c.carte);
+    var morte=!fantome && carte.pilier!==c.pilier;
+    if(morte && !conteste && o.avecCarte.length)throw new Error("le joueur "+c.joueur+" a une carte d'un pilier libre : pas de carte morte");
+    poses.push({joueur:c.joueur,pilier:c.pilier,carte:carte,conteste:conteste,morte:morte,
+                valeur:morte?0:carte.pts,joker:c.joker||null});
+  });
+
+  // Les jokers sortent des mains ; le bouclier ouvre sa fenêtre.
+  var jokerCarte={};
+  poses.forEach(function(x){
+    if(!x.joker)return;
+    var i=p.jokers[x.joueur].findIndex(function(j){return j.id===x.joker;});
+    if(i<0)throw new Error("ce joker n'est pas en main (joueur "+x.joueur+")");
+    jokerCarte[x.joueur]=p.jokers[x.joueur].splice(i,1)[0];
+    if(x.joker==="j4")p.bouclier[x.joueur]=tirerBouclier(p.rnd);
+  });
+  var protege={};[1,2,3,4].forEach(function(j){protege[j]=consommerBouclier(p,j);});
+  var equipeProtegee={nous:protege[1]||protege[3],eux:protege[2]||protege[4]};
+
+  // La manche : la plus forte valeur, égalité au premier posé.
+  var gagnant=null;poses.forEach(function(x){if(!gagnant||x.valeur>gagnant.valeur)gagnant=x;});
+  var butin=0;poses.forEach(function(x){butin+=x.valeur;});
+
+  var bloque={},perdu={};
+  poses.forEach(function(x){
+    if(x.joker!=="j1"&&x.joker!=="j2")return;
+    var adv=EQUIPE[x.joueur]==="nous"?"eux":"nous";
+    if(equipeProtegee[adv]){
+      bloque[x.joueur]=true;
+      jokerCarte[x.joueur].bloques=(jokerCarte[x.joueur].bloques||0)+1;
+      if(jokerCarte[x.joueur].bloques<2)p.jokers[x.joueur].push(jokerCarte[x.joueur]);else perdu[x.joueur]=x.joker;
+      return;
+    }
+    if(x.joker==="j1")gagnant=x;
+    if(x.joker==="j2")butin*=2;
+  });
+  var equipe=EQUIPE[gagnant.joueur];
+  p.scores[equipe]+=butin;
+
+  // Les contestations : à part, en fin de manche.
+  var primes=[];
+  PILIERS.forEach(function(pil){
+    var sur=poses.filter(function(x){return x.pilier===pil;});
+    if(sur.length<2)return;
+    var vainqueur=sur[0];sur.forEach(function(x){if(x.valeur>vainqueur.valeur)vainqueur=x;});
+    var montant=0;sur.forEach(function(x){montant+=x.valeur;});
+    p.scores[EQUIPE[vainqueur.joueur]]+=montant;
+    primes.push({pilier:pil,gagnant:vainqueur.joueur,equipe:EQUIPE[vainqueur.joueur],montant:montant,
+                 contestant:sur[1].joueur,tenu:vainqueur.joueur===sur[0].joueur});
+  });
+
+  // Les cartes rejoignent le pilier gagnant, rangées du côté de l'équipe.
+  poses.forEach(function(x){
+    p.plis[gagnant.pilier].push(Object.assign({},x.carte,{par:x.joueur,gagnePar:equipe,morte:x.joueur!==gagnant.joueur,manche:p.manche}));
+  });
+  if(p.piliersGagnes[equipe].indexOf(gagnant.pilier)<0)p.piliersGagnes[equipe].push(gagnant.pilier);
+  var bonus=0;
+  if(!p.bonusEquilibre[equipe]&&p.piliersGagnes[equipe].length===4){bonus=40;p.bonusEquilibre[equipe]=true;p.scores[equipe]+=bonus;}
+
+  var h={manche:p.manche,ouvreur:p.ouvreur,poses:poses,gagnant:gagnant.joueur,equipe:equipe,
+         pilierGagnant:gagnant.pilier,butin:butin,bonus:bonus,primes:primes,protege:protege,bloque:bloque,perdu:perdu};
+  p.historique.push(h);
+  p.manche+=1;p.ouvreur=p.ouvreur%4+1;
+  return h;
+}
+
+/* ── L'IA à quatre : la Sage en équipe ─────────────────────────────────
+   Elle ne lit que SA main, SON joker et ce qui est sur la table. Les cartes
+   posées face cachée restent inconnues pour elle — elle sait seulement de
+   quel pilier elles sont (sauf bluff). Elle estime, pour chaque carte
+   qu'elle peut poser, la chance que SON ÉQUIPE gagne la manche : si son
+   partenaire a déjà posé fort, elle lâche une faible ; si tout est perdant,
+   elle donne le moins possible. Elle conteste quand sa carte a de bonnes
+   chances de tenir, et ne bluffe jamais avec une carte morte — sauf quand
+   c'est la seule sortie. */
+function inconnues4(p,joueur){
+  var vues={};p.mains[joueur].forEach(function(c){vues[c.id]=1;});
+  PILIERS.forEach(function(x){p.plis[x].forEach(function(c){vues[c.id]=1;});});
+  var r={};PILIERS.forEach(function(x){r[x]=[];});
+  PAQUET_REFERENCE.forEach(function(c){if(!vues[c.id])r[c.pilier].push(c.pts);});
+  return r;
+}
+/* Distribution pondérée (les fortes cartes sortent plus) des valeurs
+   possibles d'un adversaire sur un pilier donné, ou sur tous (`null`). */
+function distribution4(inc,pilier){
+  var vals=[];(pilier?[pilier]:PILIERS).forEach(function(x){vals=vals.concat(inc[x]);});
+  vals.sort(function(a,b){return a-b;});
+  var tot=0,d=vals.map(function(v,i){tot+=i+1;return {v:v,w:i+1};});
+  if(!tot)return [{v:27,w:1}];
+  d.forEach(function(e){e.w/=tot;});return d;
+}
+function chanceDeBattre(v,d,gagneEgalite){var s=0;d.forEach(function(e){if(v>e.v||(gagneEgalite&&v===e.v))s+=e.w;});return s;}
+function esperance(d){var s=0;d.forEach(function(e){s+=e.v*e.w;});return s;}
+
+function ia4(p,joueur,coups){
+  var o=options4(p,joueur,coups),inc=inconnues4(p,joueur);
+  var ordre=ordreManche4(p),rang=ordre.indexOf(joueur);
+  var dejaPose={};coups.forEach(function(c){dejaPose[c.joueur]=c;});
+  var autres=[1,2,3,4].filter(function(j){return j!==joueur;});
+  // Pour chaque autre joueur : sa distribution de valeur et s'il joue avant moi.
+  var profils=autres.map(function(j){
+    var c=dejaPose[j];
+    var d=c?(c.carte==="fantome"?[{v:27.5,w:1}]:distribution4(inc,c.pilier)):distribution4(inc,null);
+    return {j:j,d:d,avant:ordre.indexOf(j)<rang,partenaire:j===partenaireDe(joueur),e:esperance(d)};
+  });
+  function chanceEquipe(v){
+    // Je gagne : je bats chacun (égalité : je gagne contre ceux qui posent après moi).
+    var moi=1;profils.forEach(function(q){moi*=chanceDeBattre(v,q.d,!q.avant);});
+    // Mon partenaire gagne avec w : il bat les adversaires et moi.
+    var part=profils.filter(function(q){return q.partenaire;})[0],opps=profils.filter(function(q){return !q.partenaire;});
+    var pp=0;part.d.forEach(function(e){
+      var w=e.v,c=e.w;
+      if(!(w>v||(w===v&&part.avant)))return;      // il doit me battre aussi
+      opps.forEach(function(q){c*=chanceDeBattre(w,q.d,q.avant?false:true);});
+      pp+=c;
+    });
+    return Math.min(1,moi+pp);
+  }
+  var potAutres=0;profils.forEach(function(q){potAutres+=q.e;});
+  var choix=[];
+  o.avecCarte.forEach(function(pil){
+    p.mains[joueur].filter(function(c){return c.pilier===pil;}).forEach(function(c){
+      var g=chanceEquipe(c.pts);
+      choix.push({pilier:pil,carte:c,gain:g,ev:(2*g-1)*(c.pts+potAutres),conteste:false});
+    });
+  });
+  o.contestables.forEach(function(pil){
+    var proprio=coups.filter(function(c){return c.pilier===pil;})[0];
+    var dp=distribution4(inc,pil);
+    p.mains[joueur].filter(function(c){return c.pilier===pil;}).forEach(function(c){
+      var g=chanceEquipe(c.pts),gc=chanceDeBattre(c.pts,dp,false);
+      var prime=(2*gc-1)*(c.pts+esperance(dp));
+      choix.push({pilier:pil,carte:c,gain:g,ev:(2*g-1)*(c.pts+potAutres)+prime,conteste:true});
+    });
+  });
+  if(o.fantome.length){
+    o.fantome.forEach(function(pil){
+      if(choix.some(function(x){return x.pilier===pil&&!x.conteste;}))return;
+      var g=chanceEquipe(27.5);
+      choix.push({pilier:pil,carte:{id:"fantome",pilier:pil,pts:27.5,nom:"Fantôme",fantome:true},gain:g,ev:(2*g-1)*(27.5+potAutres)-4,conteste:o.contestables.indexOf(pil)>=0});
+    });
+  }
+  var meilleur=null;choix.forEach(function(x){if(!meilleur||x.ev>meilleur.ev)meilleur=x;});
+  if(!meilleur){
+    // Aucune carte d'un pilier libre : carte morte, la plus faible, sur le premier pilier libre.
+    var faible=null;p.mains[joueur].forEach(function(c){if(!faible||c.pts<faible.pts)faible=c;});
+    return {pilier:o.mortes[0],carte:faible,gain:0,joker:null,morte:true};
+  }
+  if(meilleur.ev<0&&!meilleur.carte.fantome){
+    // Tout est perdant : la plus faible carte autorisée, sans contester.
+    var f=null;o.avecCarte.forEach(function(pil){p.mains[joueur].forEach(function(c){if(c.pilier===pil&&(!f||c.pts<f.pts))f=c;});});
+    if(f){meilleur={pilier:f.pilier,carte:f,gain:chanceEquipe(f.pts),ev:-1,conteste:false};}
+  }
+  // Le joker, un seul par joueur et par partie.
+  var joker=null,a=function(id){return p.jokers[joueur].some(function(j){return j.id===id;});};
+  var derniere=p.manche===p.total,retard=p.scores[EQUIPE[joueur]]<p.scores[EQUIPE[joueur]==="nous"?"eux":"nous"];
+  if(!meilleur.carte.fantome){
+    if(a("j1")&&(meilleur.gain<=0.35&&potAutres>=60||derniere&&retard))joker="j1";
+    else if(a("j2")&&(meilleur.gain>=0.7||derniere&&meilleur.gain>=0.5))joker="j2";
+    else if(a("j4")&&!bouclierEngage(p,joueur)&&!bouclierEngage(p,partenaireDe(joueur))&&(p.manche>=3&&meilleur.gain>=0.55||p.manche>=p.total-1))joker="j4";
+  }
+  return {pilier:meilleur.pilier,carte:meilleur.carte,gain:meilleur.gain,joker:joker,conteste:meilleur.conteste,morte:false};
+}
+
+
+/* ── La table à 4 à l'écran ──────────────────────────────────────────────
+   Toi en bas, Nord (ton partenaire) en face, Est et Ouest sur les côtés —
+   mais les cartes se posent par PILIER, comme au duel : la rangée du haut
+   est la table, un emplacement par pilier, et chaque carte porte le nom de
+   qui l'a posée. Les trois autres jouent seuls, à ton rythme. */
+var coups4=[], choix4=null, minuterie4=null;
+function tour4(){
+  if(finie(P))return rendreFin();
+  sauverPartie();
+  coups4=[];choix4=null;dernier=null;jokerArme=null;fantomeArme=false;
+  clearTimeout(minuterie4);
+  avancer4();
+}
+function avancer4(){
+  var ordre=ordreManche4(P),i=coups4.length;
+  if(i>=4){
+    dernier=resoudreManche4(P,coups4.map(function(c){return {joueur:c.joueur,pilier:c.pilier,carte:c.carte,joker:c.joker};}));
+    etape="verdict";choix4=null;AUDIO.retourne();rendre();return;
+  }
+  var j=ordre[i];
+  if(j===1){etape="pilier";rendre();return;}
+  etape="attente";rendre();
+  clearTimeout(minuterie4);
+  minuterie4=setTimeout(function(){
+    if(etape!=="attente"||coups4.length!==i)return;
+    var d=ia4(P,j,coups4);
+    coups4.push({joueur:j,pilier:d.pilier,carte:d.carte.id,joker:d.joker,conteste:!!d.conteste});
+    AUDIO.pose();avancer4();
+  },i===0?500:900);
+}
+function choisirPilier4(pil){
+  if(etape!=="pilier")return;
+  var o=options4(P,1,coups4);
+  if(fantomeArme&&o.fantome.indexOf(pil)>=0){jouerFantome4(pil);return;}
+  if(o.avecCarte.indexOf(pil)>=0)choix4={pilier:pil,conteste:false,morte:false};
+  else if(o.contestables.indexOf(pil)>=0)choix4={pilier:pil,conteste:true,morte:false};
+  else if(o.mortes.indexOf(pil)>=0)choix4={pilier:pil,conteste:false,morte:true};
+  else return;
+  AUDIO.pilier();etape="poser";rendre();
+}
+function jouerCarte4(id){
+  if(etape!=="poser"||!choix4)return;
+  var carte=P.mains[1].find(function(c){return c.id===id;});if(!carte)return;
+  if(!choix4.conteste&&!choix4.morte&&carte.pilier!==choix4.pilier)return;
+  coups4.push({joueur:1,pilier:choix4.pilier,carte:id,joker:jokerArme||null,conteste:choix4.conteste});
+  jokerArme=null;fantomeArme=false;choix4=null;sel=null;
+  avancer4();
+}
+function jouerFantome4(pil){
+  if(etape!=="pilier")return;
+  var o=options4(P,1,coups4);if(o.fantome.indexOf(pil)<0)return;
+  AUDIO.joker();
+  coups4.push({joueur:1,pilier:pil,carte:"fantome",joker:null,conteste:o.contestables.indexOf(pil)>=0&&o.libres.indexOf(pil)<0});
+  fantomeArme=false;choix4=null;avancer4();
+}
+function jouables4(){
+  if(etape!=="poser"||!choix4)return [];
+  return (choix4.conteste||choix4.morte)?PILIERS.slice():[choix4.pilier];
+}
+function nomDe(j){return j===1?"TOI":SIEGE[j];}
+function rendre4(){
+  var o=(etape==="pilier")?options4(P,1,coups4):null;
+  var poses=(etape==="verdict"&&dernier)?dernier.poses:coups4.map(function(c){
+    return {joueur:c.joueur,pilier:c.pilier,conteste:c.conteste,morte:false,
+            carte:c.joueur===1?(c.carte==="fantome"?{id:"fantome",pilier:c.pilier,pts:"?",nom:"Fantôme",fantome:true,cit:""}:P.mains[1].find(function(x){return x.id===c.carte;})):null};
+  });
+  // Au verdict, les cartes jouées ont déjà quitté la main : on les lit dans la manche.
+  var parPilier={};poses.forEach(function(x){parPilier[x.pilier]=parPilier[x.pilier]||[];parPilier[x.pilier].push(x);});
+
+  var msg="";
+  var nous=P.scores.nous,eux=P.scores.eux;
+  if(jokerArme) msg='<b>'+JOKERS_EFFET[jokerArme].nom+' armé</b> — il s’appliquera à la carte que tu vas poser.';
+  else if(etape==="attente"){
+    var prochain=ordreManche4(P)[coups4.length];
+    msg='<i>'+SIEGE[prochain]+' réfléchit…</i>';
+  }else if(etape==="pilier"){
+    if(!coups4.length)msg='🎯 <b>Tu ouvres.</b> Choisis ton pilier.';
+    else{
+      var pris=coups4.map(function(c){return nomDe(c.joueur)+' → <b style="white-space:nowrap">'+c.pilier+'</b>'+(c.conteste?' ⚔':'');}).join(' · ');
+      msg=pris+'<br>'+(o.avecCarte.length?'Prends un pilier libre':'<b>Aucune carte d’un pilier libre</b> : pose une carte morte (0)')
+        +(o.contestables.length?' — ou <b style="color:#ff8a8a">conteste</b> un pilier adverse.':'.');
+    }
+  }else if(etape==="poser"&&choix4){
+    if(choix4.conteste)msg='⚔ <b>Tu contestes '+choix4.pilier+'.</b><br>Pose ta carte — d’un autre pilier, elle vaudra 0. Rien n’est vérifié.';
+    else if(choix4.morte)msg='Pose n’importe quelle carte sur <b>'+choix4.pilier+'</b> : elle vaudra 0.';
+    else msg='🎴 Pose une carte de <b style="white-space:nowrap">'+choix4.pilier+'.</b>';
+  }else if(etape==="verdict"&&dernier){
+    var g=dernier.poses.filter(function(x){return x.joueur===dernier.gagnant;})[0];
+    msg='<b style="font-size:15px">'+(dernier.equipe==="nous"?(dernier.gagnant===1?"Tu remportes la manche":"Nord remporte la manche"):SIEGE[dernier.gagnant]+" remporte la manche")+'</b>'
+      +' <span style="white-space:nowrap">· <b>+'+dernier.butin+'</b> pour '+(dernier.equipe==="nous"?"nous":"eux")+'</span>';
+    dernier.primes.forEach(function(pr){
+      msg+='<br><span style="font-size:11px;color:#ff8a8a">⚔ '+pr.pilier+' : '+(pr.tenu?nomDe(pr.gagnant)+' tient':nomDe(pr.gagnant)+' l’emporte')+' · +'+pr.montant+' pour '+(pr.equipe==="nous"?"nous":"eux")+'</span>';
+    });
+    if(dernier.bonus)msg+='<br><b style="color:#F0D060">Équilibre des 4 piliers : +40 !</b>';
+    var notes=[];dernier.poses.forEach(function(x){
+      if(x.joker){var n=JOKERS_EFFET[x.joker]?JOKERS_EFFET[x.joker].nom:x.joker;notes.push(nomDe(x.joueur)+' : '+n+(dernier.bloque[x.joueur]?(dernier.perdu[x.joueur]?' (brisé)':' (bloqué, revient)'):''));}
+    });
+    if(notes.length)msg+='<br><span style="font-size:11px;color:#c9a0ff">🃏 '+notes.join(' · ')+'</span>';
+    if(g&&g.carte&&g.carte.cit)msg+='<i class="cit">« '+g.carte.cit+' »</i>';
+  }
+  if(etape!=="verdict"&&(bouclierEngage(P,1)||bouclierEngage(P,3)))msg+='<br><small>🛡️ Notre protection : '+((P.bouclier[1]||P.bouclier[3]).restantes)+' manche(s)</small>';
+
+  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
+    +'<div class="sc"><div class="'+(nous>eux?"mene":"")+'"><span>NOUS · piliers '+P.piliersGagnes.nous.length+'/4</span><b>'+nous+'</b></div>'
+    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+'Table à 4</span></div>'
+    +'<div class="'+(eux>nous?"mene":"")+'" style="align-items:flex-end"><span>EUX · piliers '+P.piliersGagnes.eux.length+'/4</span><b>'+eux+'</b></div></div></div>';
+
+  h+='<div class="mat"><div class="rang">';
+  PILIERS.forEach(function(p){
+    var sur=parPilier[p]||[];
+    h+='<div class="slot'+(sur.length?" on":"")+(etape==="verdict"&&sur.length?" revele":"")+'" data-p="'+p+'">'
+      +pileHTML(plisVisibles4(p),2);
+    sur.forEach(function(x,i){
+      var face=(x.joueur===1||etape==="verdict")&&x.carte;
+      h+='<div class="dessus'+(i?" deux":"")+'">'+(face?carteHTML(x.carte):dosHTML())
+        +'<div class="qui '+EQUIPE[x.joueur]+'">'+nomDe(x.joueur)+(x.conteste?' ⚔':'')+(etape==="verdict"&&x.morte?' · 0':'')+'</div></div>';
+    });
+    h+='</div>';
+  });
+  h+='</div><div class="medrang">';
+  PILIERS.forEach(function(p){
+    var k=CLE[p],sur=parPilier[p]||[];
+    var can=o&&(fantomeArme?false:o.avecCarte.indexOf(p)>=0), conteste=o&&!fantomeArme&&o.contestables.indexOf(p)>=0,
+        morte=o&&!fantomeArme&&o.mortes.indexOf(p)>=0, fant=o&&fantomeArme&&o.fantome.indexOf(p)>=0;
+    var actif=can||conteste||morte||fant;
+    var on=(choix4&&choix4.pilier===p);
+    var cls="med"+(actif?" can":"")+(conteste&&!can?" contest":"")+(on?" on":"")+((!actif&&!on&&!sur.length)?" off":"");
+    var clic=actif?(fant?'jouerFantome4(\''+p+'\')':'choisirPilier4(\''+p+'\')'):'';
+    var label=fant?'👻 Fantôme':(conteste&&!can?'⚔ contester':(morte?'carte morte':(sur.length?sur.map(function(x){return nomDe(x.joueur);}).join(' ⚔ '):(function(){
+        var n=P.mains[1].filter(function(c){return c.pilier===p;}).length;return n?n+" carte"+(n>1?"s":""):"libre";})())));
+    h+='<div class="'+cls+'" data-p="'+p+'" style="--acc:'+(on?"#F0D060":"#e05555")+'">'
+      +'<div class="rond e-'+k+'"'+(clic?' onclick="'+clic+'"':'')+'></div>'
+      +'<div class="nb" style="color:'+(fant?"#c9a0ff":(conteste&&!can?"#ff8a8a":(sur.length&&!actif?"#E8C877":"#8b8397")))+'">'+label+'</div></div>';
+  });
+  h+='</div></div>';
+  h+='<div class="msg haute"><div class="msg-content">'+msg+'</div></div>';
+
+  var jouables=jouables4();
+  var aMontrer=(etape==="poser"&&choix4&&!choix4.conteste&&!choix4.morte)?P.mains[1].filter(function(c){return c.pilier===choix4.pilier;}):P.mains[1];
+  var largeurMain=Math.min(window.innerWidth||390,520)-20-2;
+  var carteL=largeurMain/4, carteH=carteL*1.4182;
+  var hautMain=Math.round(2*carteH+6+12);
+  var zoom=(etape==="poser"&&aMontrer.length<=4);
+  var cols=4,rangs=2,largeurCarte=0;
+  if(zoom){
+    var n=Math.max(1,aMontrer.length),dispo=hautMain-12,meilleur=0;
+    [1,2].forEach(function(r){var cc=Math.ceil(n/r),colL=(largeurMain-8*(cc-1))/cc,L=Math.min((dispo-(r-1)*8)/r/1.4182,colL);if(L>meilleur){meilleur=L;cols=cc;rangs=r;largeurCarte=L;}});
+  }
+  h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;grid-template-rows:repeat('+rangs+',1fr);'
+    +(zoom?'justify-content:center;align-content:center;':'')
+    +'grid-template-columns:'+(zoom?"repeat("+cols+","+Math.floor(largeurCarte)+"px)":"repeat(4,1fr)")+'">';
+  aMontrer.forEach(function(c){
+    var jouable=(jouables.indexOf(c.pilier)>=0);
+    h+='<div class="k'+(jouable?" go":" lisible")+(sel===c.id?" leve":"")+'" data-id="'+c.id+'" data-p="'+c.pilier+'">'+carteHTML(c)+'</div>';
+  });
+  h+='</div>';
+  h+=tableauHTML()+reglagesHTML()+aideHTML()+statsHTML()+palmaresHTML()+guideHTML();
+  document.getElementById("app").innerHTML=h;
+  balayage=false;souleves=[];
+  var sales=document.querySelectorAll(".k.loupe,.k.retombe,.k.prise");
+  for(var q=0;q<sales.length;q++){sales[q].classList.remove("loupe");sales[q].classList.remove("retombe");sales[q].classList.remove("prise");}
+  if(!drag){var vols=document.querySelectorAll("#vol");for(var q2=0;q2<vols.length;q2++)vols[q2].parentNode.removeChild(vols[q2]);}
+  enchainer();
+}
+/* Les cartes remportées sur un pilier : visibles jusqu'à la fin, sauf celles
+   de la manche en cours de verdict, encore sur la table. */
+function plisVisibles4(p){
+  return P.plis[p].filter(function(x){return !(etape==="verdict"&&dernier&&x.manche===dernier.manche);});
+}
+function rendreFin4(){
+  var nous=P.scores.nous,eux=P.scores.eux,gagne=nous>eux,nul=nous===eux;
+  if(!P._compte){P._compte=true;STATS.finPartie(nous,eux,P.plis);
+    if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:nous,s2:eux,mode:'table4'}));}catch(e){}}}
+  oublierPartie();MUSIQUE.arrete();
+  if(gagne||nul)AUDIO.fanfare();
+  document.getElementById("app").innerHTML='<div id="ciel"></div><div class="fin"><div class="titre">'+(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
+    +'<div class="score">'+nous+' <span style="opacity:.4">—</span> '+eux+'</div>'
+    +'<div class="donne">'+(P.donne?'☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+' · ':'')+'TABLE À 4 · TOI & NORD CONTRE EST & OUEST</div>'
+    +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '+Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
+    +'<div class="bilan">'+Object.keys(P.plis).map(function(p){
+        if(!P.plis[p].length)return "";
+        var n1=P.plis[p].filter(function(c){return c.gagnePar==="nous";}).length,n2=P.plis[p].length-n1;
+        return '<div class="col"><div class="tit">'+p+' — nous '+n1+' · eux '+n2+'</div><div class="lot">'+P.plis[p].map(function(c){return '<div class="mini">'+carteHTML(c)+'</div>';}).join("")+'</div></div>';
+      }).join("")+'</div>'
+    +'<p>Bonus Équilibre : nous '+(P.bonusEquilibre.nous?'+40':'0')+' · eux '+(P.bonusEquilibre.eux?'+40':'0')+'</p>'
+    +'<div class="actions"><button class="act" onclick="neuf()">Rejouer</button><button class="act" onclick="partager()">Partager</button>'
+    +(P.donne?'':'<button class="act" onclick="donneDuJour()">☀️ Donne du jour</button>')+'</div></div>';
+  if(gagne||nul)lancerFeux();
+}
+var MODES={duel:"Duel",table4:"Table à 4"};
+var modeJeu='duel';
+try{var md=localStorage.getItem('atoutvie_mode');if(MODES[md])modeJeu=md;}catch(e){}
+function reglerMode(m){if(!MODES[m])return;modeJeu=m;try{localStorage.setItem('atoutvie_mode',m);}catch(e){}rendre();}
 
 
 /* ═══ LE SON ═══════════════════════════════════════════════════════════
@@ -1060,6 +1531,7 @@ var sel=null;
 
 function boite(sel_){ var e=document.querySelector(sel_); return e?e.getBoundingClientRect():null; }
 function cibleDe(pil){
+  if(P&&P.mode==='table4'&&choix4)pil=choix4.pilier;
   return boite('.rang.mienne .slot[data-p="'+pil+'"]') || boite('.med[data-p="'+pil+'"]');
 }
 
@@ -1201,6 +1673,7 @@ function toucher(id,pil){
 }
 
 function jouablesMaintenant(){
+  if(P.mode==='table4')return jouables4();
   return (etape==="poser" && pilJ) ? [pilJ] : [];   // rien avant les deux piliers
 }
 
@@ -1249,7 +1722,7 @@ document.addEventListener("pointerdown",function(e){
   var k=e.target.closest?e.target.closest(".k.go"):null;
   if(!k) return;
   var r=k.getBoundingClientRect();
-  drag={id:k.dataset.id,pil:k.dataset.p,el:k,r:r,x0:e.clientX,y0:e.clientY,parti:false};
+  drag={id:k.dataset.id,pil:(P.mode==='table4'&&choix4&&(choix4.conteste||choix4.morte))?choix4.pilier:k.dataset.p,el:k,r:r,x0:e.clientX,y0:e.clientY,parti:false};
 });
 document.addEventListener("pointermove",function(e){
   if(!drag) return;
@@ -1336,6 +1809,10 @@ function reglagesHTML(){
     +'<div class="regle"><label>🎵 Musique</label>'
       +'<input type="range" min="0" max="100" value="'+Math.round(MUSIQUE.volume()*100)+'"'
       +' oninput="reglerMusique(this.value)"></div>'
+    +'<div class="regle"><label>Mode de jeu</label><div class="niveaux" style="flex:1.4">'
+      +'<button class="'+(modeJeu==='duel'?'on':'')+'" onclick="reglerMode(\'duel\')">Duel</button>'
+      +'<button class="'+(modeJeu==='table4'?'on':'')+'" onclick="reglerMode(\'table4\')">Table à 4</button></div></div>'
+    +(modeJeu!==(P.mode==='table4'?'table4':'duel')?'<button class="fermer or" onclick="reglagesOuverts=false;neuf()">Commencer une partie en '+MODES[modeJeu]+'</button>':'')
     +'<div class="regle"><label>Manches par partie</label>'
       +'<select onchange="reglerManches(this.value)">'
       +[8,10,12,16].map(function(n){
@@ -1371,6 +1848,7 @@ function aideHTML(){
     +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible.<br><b>Multiplicateur :</b> double le pot, même si l’adversaire le remporte.<br><b>Bouclier :</b> protège la manche d’activation et la suivante contre ces deux jokers. Une attaque bloquée revient en main la première fois ; au deuxième blocage, le joker est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
     +'<p><b>Deux adversaires :</b> l’Apprentie joue sa plus forte carte. La Sage compte les cartes posées, devine ce qui te reste et sacrifie ses faibles quand la manche est perdue. Compte toi aussi : 32 cartes, tu en vois une sur deux.</p>'
     +'<p><b>La donne du jour :</b> chaque jour, la même main pour tout le monde, contre la Sage, en 10 manches. Compare ton score avec tes amis.</p>'
+    +'<p><b>La table à 4 :</b> toi et Nord contre Est et Ouest. 8 cartes chacun, pas de pioche, 8 manches, un joker chacun. L’ouvreur pose face cachée, puis chacun prend un pilier <b>encore libre</b> — quatre joueurs, quatre piliers. La plus forte des quatre gagne la somme des quatre pour son équipe. Tu peux <b style="color:#ff8a8a">contester</b> le pilier d’un adversaire : tu poses ta carte dessus, rien n’est vérifié ; en fin de manche, la plus forte des deux cartes de ce pilier gagne leur somme en plus. Une carte posée sur un pilier qui n’est pas le sien vaut 0. Le Bouclier protège les deux coéquipiers.</p>'
     +'<p><b>Durée :</b> 10 manches par défaut. Le choix 8, 10, 12 ou 16 dans les paramètres est conservé pour les prochaines parties. Le score le plus élevé gagne ; des scores identiques donnent une égalité.</p>'
     +'<button class="fermer" onclick="aideOuverte=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
 }
@@ -1501,6 +1979,7 @@ function carteHTML(c){
 }
 
 function rendre(){
+  if(P.mode==='table4')return rendre4();
   var ouvreur=P.initiative, jOuvre=(ouvreur===1);
   var dispo = (etape!=="pilier") ? []
             : (pilIA ? piliersRepondables(P,1,pilIA) : piliersOuvrables(P,1));
@@ -1729,7 +2208,7 @@ var STATS = (function(){
       else { st.egalites++; }
       if(s1>st.meilleurScore) st.meilleurScore=s1;
       Object.keys(plis).forEach(function(p){
-        var n=plis[p].filter(function(c){return c.gagnePar===1;}).length;
+        var n=plis[p].filter(function(c){return c.gagnePar===1||c.gagnePar==='nous';}).length;
         if(n) st.piliers[p]=(st.piliers[p]||0)+n;
       });
       ecrire();
@@ -1841,6 +2320,7 @@ function statsHTML(){
 }
 
 function rendreFin(){
+  if(P.mode==='table4')return rendreFin4();
   var gagne=P.s1>P.s2, nul=P.s1===P.s2;
   if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis);
     if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:P.s1,s2:P.s2}));}catch(e){}} }
@@ -1871,9 +2351,10 @@ function rendreFin(){
 }
 function toast(t){var e=document.getElementById('toast');if(e)e.remove();e=document.createElement('div');e.id='toast';e.textContent=t;document.body.appendChild(e);setTimeout(function(){e.remove();},2700);}
 function textePartage(){
-  var issue=P.s1>P.s2?'Victoire':(P.s1<P.s2?'Défaite':'Égalité');
-  var quoi=P.donne?'Donne du '+libelleJour(P.donne):'Partie contre la '+NIVEAUX[niveau];
-  return 'ATOUT VIE — '+quoi+' : '+issue+' '+P.s1+' – '+P.s2+'. Et toi ?';
+  var a=P.mode==='table4'?P.scores.nous:P.s1, b=P.mode==='table4'?P.scores.eux:P.s2;
+  var issue=a>b?'Victoire':(a<b?'Défaite':'Égalité');
+  var quoi=(P.donne?'Donne du '+libelleJour(P.donne):(P.mode==='table4'?'Table à 4':'Duel contre la '+NIVEAUX[niveau]));
+  return 'ATOUT VIE — '+quoi+' : '+issue+' '+a+' – '+b+'. Et toi ?';
 }
 function partager(){
   var texte=textePartage(), url='https://galgal.khalam.app/';

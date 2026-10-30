@@ -152,3 +152,111 @@ test('palmarès visible sans code ; guide à la première ouverture seulement',(
   const {c,nodes}=jeu({});c.palmaresOuvert=true;c.rendre();assert.match(nodes.get('app').innerHTML,/MON PALMARÈS/);
   const g=jeu({atoutvie_guide:undefined});assert.equal(g.c.guideOuvert,true);g.c.fermerGuide();assert.equal(g.saved.atoutvie_guide,'vu');assert.equal(jeu(g.saved).c.guideOuvert,false);
 });
+
+/* ── La table à 4 (30 octobre 2026) ── */
+const seed4=(s)=>{let x=s;return ()=>((x=(Math.imul(x,1664525)+1013904223)>>>0)/4294967296);};
+function coupsIA(c,p){const coups=[];for(const j of c.ordreManche4(p)){const d=c.ia4(p,j,coups);coups.push({joueur:j,pilier:d.pilier,carte:d.carte.id,joker:d.joker});}return coups;}
+test('table à 4 : 8 cartes chacun, pas de pioche, un joker chacun, ouvreur tiré au sort',()=>{
+  const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(1)});
+  for(const j of [1,2,3,4]){assert.equal(p.mains[j].length,8);assert.equal(p.jokers[j].length,1);}
+  assert.equal(p.pioche.length,0);assert.equal(p.total,8);assert.ok(p.ouvreur>=1&&p.ouvreur<=4);
+  assert.equal(new Set([1,2,3,4].flatMap(j=>p.mains[j].map(x=>x.id))).size,32);
+  assert.equal(new Set([1,2,3,4].map(j=>p.jokers[j][0].id)).size,4);
+  const o=[];for(let s=0;s<40;s++)o.push(c.nouvelleTable4({rnd:seed4(s)}).ouvreur);assert.equal(new Set(o).size,4);
+});
+test('table à 4 : quatre piliers différents, la plus forte gagne pour son équipe, égalité au premier posé',()=>{
+  const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(2)});p.ouvreur=1;p.jokers={1:[],2:[],3:[],4:[]};
+  const carte=(id,pil,pts)=>({id,pilier:pil,pts,nom:'T',cit:''});
+  p.mains={1:[carte('a','Santé',40)],2:[carte('b','Amour',40)],3:[carte('c','Argent',5)],4:[carte('d','Spiritualité',50)]};
+  const h=c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Amour',carte:'b'},{joueur:3,pilier:'Argent',carte:'c'},{joueur:4,pilier:'Spiritualité',carte:'d'}]);
+  assert.equal(h.gagnant,4);assert.equal(h.equipe,'eux');assert.equal(h.butin,135);assert.equal(p.scores.eux,135);assert.equal(p.ouvreur,2);
+  // Égalité : 40 contre 40, le premier posé (joueur 1) l'emporte.
+  p.mains={1:[carte('e','Santé',40)],2:[carte('f','Amour',40)],3:[carte('g','Argent',5)],4:[carte('h','Spiritualité',5)]};p.ouvreur=1;
+  const h2=c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'e'},{joueur:2,pilier:'Amour',carte:'f'},{joueur:3,pilier:'Argent',carte:'g'},{joueur:4,pilier:'Spiritualité',carte:'h'}]);
+  assert.equal(h2.gagnant,1);assert.equal(p.scores.nous,90);
+  // Un pilier libre ne peut pas être pris deux fois par la même équipe, ni un pilier pris par le partenaire.
+  p.mains={1:[carte('i','Santé',40)],2:[carte('j','Amour',40)],3:[carte('k','Santé',30),carte('k2','Argent',5)],4:[carte('l','Spiritualité',5)]};p.ouvreur=1;
+  assert.throws(()=>c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'i'},{joueur:2,pilier:'Amour',carte:'j'},{joueur:3,pilier:'Santé',carte:'k'},{joueur:4,pilier:'Spiritualité',carte:'l'}]),/ne peut pas prendre/);
+});
+test('table à 4 : la contestation se règle à part, le bluff vaut 0, un pilier ne se conteste qu’une fois',()=>{
+  const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(3)});p.ouvreur=1;p.jokers={1:[],2:[],3:[],4:[]};
+  const carte=(id,pil,pts)=>({id,pilier:pil,pts,nom:'T',cit:''});
+  // Est conteste la Santé de Toi avec un 50 de Santé : il gagne la manche (pot 50+40+10+5=105) ET la prime (50+40=90).
+  p.mains={1:[carte('a','Santé',40)],2:[carte('b','Santé',50),carte('b2','Amour',5)],3:[carte('c','Argent',10)],4:[carte('d','Spiritualité',5)]};
+  let h=c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Santé',carte:'b'},{joueur:3,pilier:'Argent',carte:'c'},{joueur:4,pilier:'Spiritualité',carte:'d'}]);
+  assert.equal(h.poses[1].conteste,true);assert.equal(h.gagnant,2);assert.equal(h.butin,105);assert.equal(h.primes.length,1);
+  assert.equal(h.primes[0].montant,90);assert.equal(h.primes[0].equipe,'eux');assert.equal(h.primes[0].tenu,false);assert.equal(p.scores.eux,195);
+  // Bluff : Est conteste Santé avec un Amour. Sa carte vaut 0 ; Toi tient la contestation et prend 40+0 ; la manche va à Ouest (50).
+  p.mains={1:[carte('e','Santé',40)],2:[carte('f','Amour',30),carte('f2','Argent',5)],3:[carte('g','Argent',10)],4:[carte('h','Spiritualité',50)]};p.ouvreur=1;p.scores={nous:0,eux:0};
+  h=c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'e'},{joueur:2,pilier:'Santé',carte:'f'},{joueur:3,pilier:'Argent',carte:'g'},{joueur:4,pilier:'Spiritualité',carte:'h'}]);
+  assert.equal(h.poses[1].morte,true);assert.equal(h.poses[1].valeur,0);assert.equal(h.gagnant,4);assert.equal(h.butin,100);
+  assert.equal(h.primes[0].tenu,true);assert.equal(h.primes[0].montant,40);assert.deepEqual([p.scores.nous,p.scores.eux],[40,100]);
+  // Ouest ne peut pas contester un pilier déjà contesté ; Nord ne peut pas contester le pilier de son partenaire.
+  p.mains={1:[carte('i','Santé',40)],2:[carte('j','Santé',50)],3:[carte('k','Santé',30),carte('k2','Argent',5)],4:[carte('l','Santé',45),carte('l2','Spiritualité',5)]};p.ouvreur=1;
+  assert.throws(()=>c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'i'},{joueur:2,pilier:'Santé',carte:'j'},{joueur:3,pilier:'Argent',carte:'k2'},{joueur:4,pilier:'Santé',carte:'l'}]),/ne peut pas prendre/);
+  p.mains={1:[carte('m','Santé',40)],2:[carte('n','Amour',50)],3:[carte('o','Santé',30),carte('o2','Argent',5)],4:[carte('q','Spiritualité',5)]};p.ouvreur=1;
+  assert.throws(()=>c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'m'},{joueur:2,pilier:'Amour',carte:'n'},{joueur:3,pilier:'Santé',carte:'o'},{joueur:4,pilier:'Spiritualité',carte:'q'}]),/ne peut pas prendre/);
+});
+test('table à 4 : carte morte seulement sans carte d’un pilier libre ; jokers d’équipe ; bonus par équipe',()=>{
+  const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(4)});p.ouvreur=1;
+  const carte=(id,pil,pts)=>({id,pilier:pil,pts,nom:'T',cit:''});
+  // Ouest n'a que de l'Amour alors qu'Amour est pris : carte morte autorisée sur Spiritualité, valeur 0.
+  p.jokers={1:[],2:[],3:[],4:[]};
+  p.mains={1:[carte('a','Santé',40)],2:[carte('b','Amour',20)],3:[carte('c','Argent',10)],4:[carte('d','Amour',50)]};
+  let h=c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Amour',carte:'b'},{joueur:3,pilier:'Argent',carte:'c'},{joueur:4,pilier:'Spiritualité',carte:'d'}]);
+  assert.equal(h.poses[3].morte,true);assert.equal(h.butin,70);assert.equal(h.gagnant,1);
+  // Mais avec une carte d'un pilier libre en main, la carte morte est refusée.
+  p.mains={1:[carte('e','Santé',40)],2:[carte('f','Amour',20)],3:[carte('g','Argent',10)],4:[carte('h','Amour',50),carte('h2','Spiritualité',5)]};p.ouvreur=1;
+  assert.throws(()=>c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'e'},{joueur:2,pilier:'Amour',carte:'f'},{joueur:3,pilier:'Argent',carte:'g'},{joueur:4,pilier:'Spiritualité',carte:'h'}]),/carte morte/);
+  // Brakeur d'Est bloqué par le Bouclier de Nord (équipe) : il revient ; Multiplicateur d'Ouest double le pot.
+  p.jokers={1:[],2:[{id:'j1'}],3:[{id:'j4'}],4:[{id:'j2'}]};
+  p.mains={1:[carte('i','Santé',40)],2:[carte('j','Amour',5)],3:[carte('k','Argent',10)],4:[carte('l','Spiritualité',5)]};p.ouvreur=1;p.scores={nous:0,eux:0};
+  h=c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'i'},{joueur:2,pilier:'Amour',carte:'j',joker:'j1'},{joueur:3,pilier:'Argent',carte:'k',joker:'j4'},{joueur:4,pilier:'Spiritualité',carte:'l',joker:'j2'}]);
+  assert.equal(h.bloque[2],true);assert.equal(p.jokers[2].length,1);assert.equal(h.bloque[4],true);assert.equal(h.gagnant,1);assert.equal(h.butin,60);assert.equal(p.scores.nous,60);
+  // Bonus Équilibre : l'équipe qui gagne dans les quatre piliers.
+  p.piliersGagnes.nous=['Santé','Amour','Argent'];p.jokers={1:[],2:[],3:[],4:[]};
+  p.mains={1:[carte('m','Spiritualité',50)],2:[carte('n','Amour',5)],3:[carte('o','Argent',5)],4:[carte('q','Santé',5)]};p.ouvreur=1;
+  h=c.resoudreManche4(p,[{joueur:1,pilier:'Spiritualité',carte:'m'},{joueur:2,pilier:'Amour',carte:'n'},{joueur:3,pilier:'Argent',carte:'o'},{joueur:4,pilier:'Santé',carte:'q'}]);
+  assert.equal(h.bonus,40);assert.equal(p.bonusEquilibre.nous,true);
+});
+test('table à 4 : l’IA ne lit que sa main ; 300 parties complètes cohérentes et équilibrées',()=>{
+  const {c}=jeu();const rnd=seed4(5);let nous=0,contests=0;
+  for(let i=0;i<300;i++){const p=c.nouvelleTable4({rnd});
+    while(!c.finie(p)){
+      const coups=[];
+      for(const j of c.ordreManche4(p)){
+        const autres=[1,2,3,4].filter(x=>x!==j),mains=p.mains,jokers=p.jokers;
+        p.mains=new Proxy(mains,{get(t,k){if(autres.includes(+k))throw Error('main '+k+' consultée par '+j);return t[k];}});
+        p.jokers=new Proxy(jokers,{get(t,k){if(autres.includes(+k))throw Error('jokers '+k+' consultés par '+j);return t[k];}});
+        const d=c.ia4(p,j,coups);p.mains=mains;p.jokers=jokers;
+        coups.push({joueur:j,pilier:d.pilier,carte:d.carte.id,joker:d.joker});
+      }
+      const h=c.resoudreManche4(p,coups);contests+=h.primes.length;
+    }
+    assert.equal(p.historique.length,8);
+    const attendu={nous:0,eux:0};p.historique.forEach(h=>{attendu[h.equipe]+=h.butin+h.bonus;h.primes.forEach(pr=>attendu[pr.equipe]+=pr.montant);});
+    assert.deepEqual([p.scores.nous,p.scores.eux],[attendu.nous,attendu.eux]);
+    if(p.scores.nous>p.scores.eux)nous++;
+  }
+  assert.ok(nous>105&&nous<195,'déséquilibre : '+nous+'/300');assert.ok(contests>300,'trop peu de contestations : '+contests);
+});
+test('table à 4 à l’écran : une partie complète au doigt, reprise après interruption',()=>{
+  const {c,timers,nodes,saved}=jeu({atoutvie_mode:'table4'});assert.equal(c.P.mode,'table4');
+  const avancer=()=>{for(let i=0;i<200;i++){if(c.etape==='pilier'||c.etape==='verdict'||nodes.get('app').innerHTML.includes('class="fin"'))return;const [id,t]=[...timers.entries()][0]||[];if(!id)return;timers.delete(id);t.f();}};
+  let manches=0,repris=false;
+  for(let tour=0;tour<60;tour++){
+    avancer();
+    if(nodes.get('app').innerHTML.includes('class="fin"'))break;
+    if(c.etape==='pilier'){
+      assert.ok(nodes.get('app').innerHTML.includes('NOUS · piliers'));
+      const o=c.options4(c.P,1,c.coups4);const pil=o.avecCarte[0]||o.contestables[0]||o.mortes[0];
+      c.choisirPilier(pil);assert.equal(c.etape,'poser');
+      const k=c.P.mains[1].find(x=>x.pilier===pil)||c.P.mains[1][0];c.jouerCarte(k.id);
+    }else if(c.etape==='verdict'){
+      manches++;assert.equal(c.P.historique.length,manches);
+      if(manches===2&&!repris){repris=true;const r=jeu(saved);assert.equal(r.c.P.mode,'table4');assert.equal(r.c.P.manche,2);}
+      c.suivante();
+    }
+  }
+  assert.equal(manches,8);assert.match(nodes.get('app').innerHTML,/TABLE À 4/);assert.equal(saved.atoutvie_partie,undefined);
+});
