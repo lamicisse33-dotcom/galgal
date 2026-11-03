@@ -420,7 +420,7 @@ body{background:radial-gradient(ellipse at 50% 0%,#14263e 0%,#071323 48%,#050c17
 html{height:100%;overflow:hidden}
 body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(8px + env(safe-area-inset-bottom,0px));display:block}
 #app{--entete-h:44px;--score-h:52px;--message-h:72px;--main-h:200px;--ui-scale:1;width:100%;max-width:720px;height:100%;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:var(--entete-h) var(--score-h) minmax(0,1fr) var(--message-h) var(--main-h);gap:6px;min-height:0}
-#app.large{max-width:1600px;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);grid-template-rows:var(--entete-h) var(--score-h) minmax(0,1fr) var(--message-h)}
+#app.large{max-width:min(3200px,170dvh);grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);grid-template-rows:var(--entete-h) var(--score-h) minmax(0,1fr) var(--message-h)}
 #app>.entete{grid-row:1;margin:0;min-height:0}#app>.bar{grid-row:2;min-height:0}#app>.mat{grid-row:3;min-height:0}#app>.msg{grid-row:4}#app>.main{grid-row:5}
 #app.large>.entete,#app.large>.bar{grid-column:1/-1}
 #app.large>.mat,#app.large>.msg{grid-column:1}
@@ -447,6 +447,20 @@ body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;paddin
 @media(max-height:540px){#app{--entete-h:36px;--score-h:40px;--message-h:52px}.entete .sonbtn{height:34px;min-width:40px}#app .rond{width:26px;height:26px}.med .nb{display:none}#app .msg-content{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.k{transition:none}}
 
+
+/* À distance sur télévision, les commandes grandissent avec l'écran. */
+#app .sc span{font-size:calc(9px * var(--ui-scale))}
+#app .mid{font-size:calc(11px * var(--ui-scale))}
+#app .mid span{font-size:calc(8px * var(--ui-scale))!important}
+#app .marque{font-size:calc(17px * var(--ui-scale))}
+#app .marque small{font-size:calc(8px * var(--ui-scale))}
+#app .entete .sonbtn{width:calc(44px * var(--ui-scale));height:calc(44px * var(--ui-scale));font-size:calc(15px * var(--ui-scale))}
+#app .rond{width:calc(44px * var(--ui-scale));height:calc(44px * var(--ui-scale))}
+#app .med::after{font-size:calc(9px * var(--ui-scale))}
+#app .med .nb{font-size:calc(8px * var(--ui-scale))}
+#app .msg-content{font-size:calc(13px * var(--ui-scale))}
+#app .msg .acces-jokers{font-size:calc(13px * var(--ui-scale));padding:calc(8px * var(--ui-scale));min-height:44px}
+@media(max-height:540px){#app .rond{width:26px;height:26px}#app .entete .sonbtn{height:34px;width:40px}#app .msg-content{font-size:11px}}
 </style></head><body>
 <div id="accesPrive" class="voile" hidden><form class="tableau" onsubmit="validerAccesPrive(event)">
 <h3>ACCÈS PRIVÉ</h3><input id="codePrive" type="password" placeholder="Code maître" aria-label="Code maître" autocomplete="off">
@@ -1898,9 +1912,9 @@ function dimensionsJeu(){
   var w=window.innerWidth||390, h=window.innerHeight||844;
   if(window.visualViewport){w=Math.min(w,window.visualViewport.width);h=window.visualViewport.height;}
   var large=w>=600 && w/h>=1.2;
-  var largeur=Math.min(w-16,large?1600:720);
+  var largeur=Math.min(w-16,large?Math.min(3200,h*1.7):720);
   var hauteur=(app&&app.clientHeight)||h-16;
-  var facteur=Math.max(1,Math.min(1.65,h/1000));
+  var facteur=Math.max(1,Math.min(2.2,h/800));
   var compact=h<540;
   var entete=compact?36:Math.round(44*facteur), score=compact?40:Math.round(52*facteur), message=compact?52:Math.round(72*facteur), ecart=6;
   var contenu=Math.max(120,hauteur-entete-score-4*ecart-message);
