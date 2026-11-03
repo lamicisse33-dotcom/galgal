@@ -409,6 +409,12 @@ body{background:radial-gradient(ellipse at 50% 0%,#14263e 0%,#071323 48%,#050c17
 .tableau h3,.tableau .fermer,.regle label{color:#dbe7f8}
 @media(max-width:360px){.marque{font-size:14px}.rond{width:44px;height:44px}.med::after{font-size:7px}}
 
+
+/* Jokers : un vrai bouton dans l'en-tête, visible pendant toute la partie. */
+.entete .acces-jokers{flex-shrink:0;min-height:44px;padding:7px 11px;border-radius:14px;border:1px solid #d0dff2;background:linear-gradient(145deg,#354e6c,#152b46);color:#fff;font:700 13px/1.2 'Crimson Text',Georgia,serif;cursor:pointer;box-shadow:0 2px 10px #0005,inset 0 1px 0 #ffffff30}
+.acces-jokers b{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;margin-left:3px;border-radius:50%;background:#dbe8fb;color:#10213a}
+.entete .acces-jokers.arme{background:#dbe8fb;color:#10213a;box-shadow:0 0 12px #b7d5ff66}
+@media(max-width:400px){.entete{gap:6px}.entete .marque{font-size:12px;letter-spacing:1px}.entete .marque small{display:block;font-size:7px}.entete .acces-jokers{padding:7px 8px;font-size:12px}}
 </style></head><body>
 <div id="accesPrive" class="voile" hidden><form class="tableau" onsubmit="validerAccesPrive(event)">
 <h3>ACCÈS PRIVÉ</h3><input id="codePrive" type="password" placeholder="Code maître" aria-label="Code maître" autocomplete="off">
@@ -1293,7 +1299,7 @@ function rendre4(){
   }
   if(etape!=="verdict"&&(bouclierEngage(P,1)||bouclierEngage(P,3)))msg+='<br><small>🛡️ Notre protection : '+((P.bouclier[1]||P.bouclier[3]).restantes)+' manche(s)</small>';
 
-  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
+  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div>'+boutonJokersHTML()+'<button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
     +'<div class="sc"><div class="'+(nous>eux?"mene":"")+'"><span>NOUS · piliers '+P.piliersGagnes.nous.length+'/4</span><b>'+nous+'</b></div>'
     +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+'Table à 4</span></div>'
     +'<div class="'+(eux>nous?"mene":"")+'" style="align-items:flex-end"><span>EUX · piliers '+P.piliersGagnes.eux.length+'/4</span><b>'+eux+'</b></div></div></div>';
@@ -1856,7 +1862,10 @@ function basculerSon(){
   rendre();
 }
 
-function ouvrirTableau(){ if(!P.jokers[1].length) return; tableauOuvert=true; rendre(); }
+function boutonJokersHTML(){
+  return '<button class="acces-jokers'+(jokerArme||fantomeArme?' arme':'')+'" onclick="ouvrirTableau()" aria-label="Mes jokers ('+P.jokers[1].length+')">🃏 Jokers <b>'+P.jokers[1].length+'</b></button>';
+}
+function ouvrirTableau(){ tableauOuvert=true; rendre(); }
 function fermerTableau(){ tableauOuvert=false; rendre(); }
 
 var jokerArme=null;
@@ -1875,7 +1884,7 @@ function tableauHTML(){
   // Le voile se ferme au clic, mais SANS bloquer la propagation : sinon le
   // choix d'un joker, délégué au document, ne recevait jamais le clic.
   var h='<div class="voile"><div class="tableau">'
-    +'<h3>TES JOKERS</h3>';
+    +'<h3>TES JOKERS</h3>'+(P.jokers[1].length?'':'<p class="note">Tu as utilisé tous tes jokers pour cette partie.</p>');
   P.jokers[1].forEach(function(j){
     var e=JOKERS_EFFET[j.id]||{icone:"🃏",nom:j.nom,eff:"",jouable:function(){return false;},quand:""};
     var ok=e.jouable();
@@ -2030,7 +2039,7 @@ function rendre(){
 
   if(etape!=="verdict" && bouclierEngage(P,1))msg+='<br><small>🛡️ Protection : '+P.bouclier[1].restantes+' manche(s) restante(s)</small>';
 
-  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
+  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div>'+boutonJokersHTML()+'<button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
     +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
     +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveau]+' · pioche '+P.pioche.length+'</span></div>'
     +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div></div>';
@@ -2079,9 +2088,7 @@ function rendre(){
   });
   h+='</div></div>';
 
-  var btnJ=(etape!=='verdict' && P.jokers[1].length)
-    ? '<button class="btn-jokers'+(jokerArme||fantomeArme?' arme':'')+'" onclick="ouvrirTableau()">🃏 Jokers ('+P.jokers[1].length+')</button>' : '';
-  h+='<div class="msg">'+btnJ+'<div class="msg-content">'+msg+'</div></div>';
+  h+='<div class="msg"><div class="msg-content">'+msg+'</div></div>';
 
   // La main guide le choix du pilier : pendant le choix elle est ENTIÈREMENT
   // lisible. Une fois le pilier choisi, seules ses cartes restent, agrandies
