@@ -114,6 +114,10 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
   padding:4px 8px;
   border-radius:10px;border:1px solid rgba(201,162,39,.22);
   background:linear-gradient(160deg,rgba(22,16,32,.55),rgba(10,8,18,.55))}
+.msg{position:relative}
+.btn-jokers{position:absolute;right:6px;top:6px;z-index:3;font:600 12px/1 inherit;padding:6px 10px;border-radius:14px;
+  background:#160f24;color:var(--goldL);border:1px solid rgba(201,162,39,.7);cursor:pointer}
+.btn-jokers.arme{background:#C9A227;color:#160f24}
 .msg-content{width:100%;max-height:100%;overflow-y:auto;overflow-x:hidden;
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .msg b{color:var(--goldL)}
@@ -2082,7 +2086,9 @@ function rendre(){
   });
   h+='</div></div>';
 
-  h+='<div class="msg"><div class="msg-content">'+msg+'</div></div>';
+  var btnJ=(etape!=='verdict' && P.jokers[1].length)
+    ? '<button class="btn-jokers'+(jokerArme||fantomeArme?' arme':'')+'" onclick="ouvrirTableau()">🃏 Jokers ('+P.jokers[1].length+')</button>' : '';
+  h+='<div class="msg">'+btnJ+'<div class="msg-content">'+msg+'</div></div>';
 
   // La main guide le choix du pilier : pendant le choix elle est ENTIÈREMENT
   // lisible. Une fois le pilier choisi, seules ses cartes restent, agrandies
@@ -2277,7 +2283,7 @@ function guideHTML(){
     +'<p>Quatre piliers de la vie — <b style="color:#9B59B6">Spiritualité</b>, <b style="color:#E74C3C">Amour</b>, <b style="color:#27AE60">Santé</b>, <b style="color:#F39C12">Argent</b>. Dix manches. Le plus de points gagne.</p>'
     +'<div class="pas"><div class="num">1</div><div><b>Choisis un pilier</b> en touchant son emblème. L’adversaire doit en prendre un autre.</div></div>'
     +'<div class="pas"><div class="num">2</div><div><b>Pose une carte</b> de ce pilier : glisse-la, ou touche-la deux fois.</div></div>'
-    +'<div class="pas"><div class="num">3</div><div><b>La plus forte gagne la somme des deux.</b> Gagne une manche dans les quatre piliers : +40. Tes jokers sont dans ⚙️.</div></div>'
+    +'<div class="pas"><div class="num">3</div><div><b>La plus forte gagne la somme des deux.</b> Gagne une manche dans les quatre piliers : +40. Tes jokers : bouton 🃏 sous le plateau.</div></div>'
     +'<p style="font-size:12px;color:#8b8397">Compte les cartes : il y en a 32, toujours les mêmes.</p>'
     +'<button class="fermer or" onclick="fermerGuide()">Jouer</button></div></div>';
 }
