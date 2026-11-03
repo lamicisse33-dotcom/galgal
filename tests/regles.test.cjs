@@ -264,10 +264,20 @@ test('table à 4 à l’écran : une partie complète au doigt, reprise après i
 test('jokers : accès permanent en duel et à quatre, même épuisés, ouverture fonctionnelle',()=>{
   for(const mode of ['duel','table4']){
     const {c,nodes}=jeu({atoutvie_mode:mode});
-    const entete=()=>nodes.get('app').innerHTML.match(/<div class="entete">([\s\S]*?)<div class="bar">/)[1];
+    const entete=()=>nodes.get('app').innerHTML.match(/<div class="msg(?: haute)?">([\s\S]*?)<div class="main/)[1];
     assert.match(entete(),/class="acces-jokers/);
     c.ouvrirTableau();assert.equal(c.tableauOuvert,true);assert.match(nodes.get('app').innerHTML,/TES JOKERS/);
     c.fermerTableau();c.P.jokers[1]=[];c.rendre();assert.match(entete(),/Mes jokers \(0\)/);
     c.ouvrirTableau();assert.match(nodes.get('app').innerHTML,/Tu as utilisé tous tes jokers/);
+  }
+});
+
+ test('affichage : dimensions fixes selon écran, indépendantes de la main et du tour',()=>{
+  for(const mode of ['duel','table4'])for(const [w,h] of [[320,568],[390,844],[430,932],[844,390],[1366,768],[1920,1080],[3840,2160]]){
+    const {c}=jeu({atoutvie_mode:mode});c.innerWidth=w;c.innerHeight=h;
+    const a=c.dimensionsJeu();assert.ok(a.hauteur>0&&a.largeur>0);
+    assert.ok(a.colonnes*a.lignes>=(mode==='table4'?8:10));
+    c.P.mains[1].pop();c.etape='poser';const b=c.dimensionsJeu();
+    assert.deepEqual(a,b,`zones variables à ${w}×${h}`);
   }
 });
