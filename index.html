@@ -1897,11 +1897,12 @@ function dimensionsJeu(){
   var app=document.getElementById('app');
   var w=window.innerWidth||390, h=window.innerHeight||844;
   if(window.visualViewport){w=Math.min(w,window.visualViewport.width);h=window.visualViewport.height;}
-  var large=w>=900 && w/h>=1.2;
+  var large=w>=600 && w/h>=1.2;
   var largeur=Math.min(w-16,large?1600:720);
   var hauteur=(app&&app.clientHeight)||h-16;
   var facteur=Math.max(1,Math.min(1.65,h/1000));
-  var entete=Math.round(44*facteur), score=Math.round(52*facteur), message=Math.round(72*facteur), ecart=6;
+  var compact=h<540;
+  var entete=compact?36:Math.round(44*facteur), score=compact?40:Math.round(52*facteur), message=compact?52:Math.round(72*facteur), ecart=6;
   var contenu=Math.max(120,hauteur-entete-score-4*ecart-message);
   var colonnes=P&&P.mode==='table4'?4:5, lignes=2;
   var largeurMain=large?(largeur-ecart)*.38:largeur;
