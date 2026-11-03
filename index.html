@@ -415,6 +415,38 @@ body{background:radial-gradient(ellipse at 50% 0%,#14263e 0%,#071323 48%,#050c17
 .acces-jokers b{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;margin-left:3px;border-radius:50%;background:#dbe8fb;color:#10213a}
 .entete .acces-jokers.arme{background:#dbe8fb;color:#10213a;box-shadow:0 0 12px #b7d5ff66}
 @media(max-width:400px){.entete{gap:6px}.entete .marque{font-size:12px;letter-spacing:1px}.entete .marque small{display:block;font-size:7px}.entete .acces-jokers{padding:7px 8px;font-size:12px}}
+
+/* Une composition par écran, sans modifier la taille des zones entre les tours. */
+html{height:100%;overflow:hidden}
+body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(8px + env(safe-area-inset-bottom,0px));display:block}
+#app{--entete-h:44px;--score-h:52px;--message-h:72px;--main-h:200px;--ui-scale:1;width:100%;max-width:720px;height:100%;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:var(--entete-h) var(--score-h) minmax(0,1fr) var(--message-h) var(--main-h);gap:6px;min-height:0}
+#app.large{max-width:1600px;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);grid-template-rows:var(--entete-h) var(--score-h) minmax(0,1fr) var(--message-h)}
+#app>.entete{grid-row:1;margin:0;min-height:0}#app>.bar{grid-row:2;min-height:0}#app>.mat{grid-row:3;min-height:0}#app>.msg{grid-row:4}#app>.main{grid-row:5}
+#app.large>.entete,#app.large>.bar{grid-column:1/-1}
+#app.large>.mat,#app.large>.msg{grid-column:1}
+#app.large>.main{grid-column:2;grid-row:3/5}
+#app .sc{height:100%}.sc b{font-size:calc(26px * var(--ui-scale))}
+#app .mat{display:grid;grid-template-rows:minmax(0,1fr) auto minmax(0,1fr);padding:7px;overflow:visible}
+#app .mat>.rang{min-height:0;grid-template-rows:minmax(0,1fr);container-type:size}
+#app .slot{width:min(100%,calc(100cqh / 1.4182));height:auto;max-width:100%;max-height:100%;aspect-ratio:110/156}
+#app .mat>.medrang{margin:5px -7px;padding:5px 7px;gap:2px}
+#app .rond{width:clamp(30px,5.5dvh,70px);height:clamp(30px,5.5dvh,70px)}
+#app .med{gap:2px}.med .nb{min-height:9px;font-size:clamp(7px,1.1dvh,11px)}
+#app .med::after{font-size:clamp(7px,1.25dvh,13px)}
+#app .msg,#app .msg.haute{height:100%;min-height:0;max-height:none;flex-basis:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:6px 8px}
+#app .msg-content{width:100%;min-width:0;max-height:100%;font-size:clamp(12px,1.7dvh,19px)}
+#app .msg .acces-jokers{position:static;align-self:center;min-width:76px;min-height:44px;padding:8px;border-radius:12px;border:1px solid #d0dff2;background:linear-gradient(145deg,#354e6c,#152b46);color:#fff;font:700 clamp(12px,1.6dvh,18px)/1.2 'Crimson Text',Georgia,serif;cursor:pointer}
+#app .msg .acces-jokers.arme{background:#dbe8fb;color:#10213a}
+#app .main,#app .main.zoom{height:100%!important;min-height:0;padding:7px;gap:6px;align-content:center;overflow:visible}
+#app .main .k{height:auto;max-height:100%;width:auto;max-width:100%;aspect-ratio:110/156}
+/* La largeur découle des deux limites : une carte ne s'étire jamais. */
+#app .main .k{width:min(100%,var(--card-max,100%))}
+#app .marque{font-size:clamp(13px,2dvh,25px)}
+#app:has(>.fin){display:block;overflow-y:auto}
+#app .fin{min-height:100%;padding:16px}
+@media(max-height:540px){#app{--entete-h:36px;--score-h:40px;--message-h:52px}.entete .sonbtn{height:34px;min-width:40px}#app .rond{width:26px;height:26px}.med .nb{display:none}#app .msg-content{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.k{transition:none}}
+
 </style></head><body>
 <div id="accesPrive" class="voile" hidden><form class="tableau" onsubmit="validerAccesPrive(event)">
 <h3>ACCÈS PRIVÉ</h3><input id="codePrive" type="password" placeholder="Code maître" aria-label="Code maître" autocomplete="off">
@@ -1299,7 +1331,7 @@ function rendre4(){
   }
   if(etape!=="verdict"&&(bouclierEngage(P,1)||bouclierEngage(P,3)))msg+='<br><small>🛡️ Notre protection : '+((P.bouclier[1]||P.bouclier[3]).restantes)+' manche(s)</small>';
 
-  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div>'+boutonJokersHTML()+'<button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
+  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
     +'<div class="sc"><div class="'+(nous>eux?"mene":"")+'"><span>NOUS · piliers '+P.piliersGagnes.nous.length+'/4</span><b>'+nous+'</b></div>'
     +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+'Table à 4</span></div>'
     +'<div class="'+(eux>nous?"mene":"")+'" style="align-items:flex-end"><span>EUX · piliers '+P.piliersGagnes.eux.length+'/4</span><b>'+eux+'</b></div></div></div>';
@@ -1332,22 +1364,21 @@ function rendre4(){
       +'<div class="nb" style="color:'+(fant?"#c9a0ff":(conteste&&!can?"#ff8a8a":(sur.length&&!actif?"#E8C877":"#8b8397")))+'">'+label+'</div></div>';
   });
   h+='</div></div>';
-  h+='<div class="msg haute"><div class="msg-content">'+msg+'</div></div>';
+  h+='<div class="msg haute"><div class="msg-content">'+msg+'</div>'+boutonJokersHTML()+'</div>';
 
   var jouables=jouables4();
   var aMontrer=(etape==="poser"&&choix4&&!choix4.conteste&&!choix4.morte)?P.mains[1].filter(function(c){return c.pilier===choix4.pilier;}):P.mains[1];
-  var largeurMain=Math.min(window.innerWidth||390,520)-20-2;
-  var carteL=largeurMain/4, carteH=carteL*1.4182;
-  var hautMain=Math.round(2*carteH+6+12);
+  var dimensions=dimensionsJeu(), largeurMain=dimensions.largeur;
+  var hautMain=dimensions.hauteur;
   var zoom=(etape==="poser"&&aMontrer.length<=4);
-  var cols=4,rangs=2,largeurCarte=0;
+  var cols=dimensions.colonnes,rangs=dimensions.lignes,largeurCarte=0;
   if(zoom){
     var n=Math.max(1,aMontrer.length),dispo=hautMain-12,meilleur=0;
     [1,2].forEach(function(r){var cc=Math.ceil(n/r),colL=(largeurMain-8*(cc-1))/cc,L=Math.min((dispo-(r-1)*8)/r/1.4182,colL);if(L>meilleur){meilleur=L;cols=cc;rangs=r;largeurCarte=L;}});
   }
-  h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;grid-template-rows:repeat('+rangs+',1fr);'
+  h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;--card-max:'+Math.floor((hautMain-16-(rangs-1)*6)/rangs/1.4182)+'px;grid-template-rows:repeat('+rangs+',minmax(0,1fr));'
     +(zoom?'justify-content:center;align-content:center;':'')
-    +'grid-template-columns:'+(zoom?"repeat("+cols+","+Math.floor(largeurCarte)+"px)":"repeat(4,1fr)")+'">';
+    +'grid-template-columns:'+(zoom?"repeat("+cols+","+Math.floor(largeurCarte)+"px)":"repeat("+cols+",1fr)")+'">';
   aMontrer.forEach(function(c){
     var jouable=(jouables.indexOf(c.pilier)>=0);
     h+='<div class="k'+(jouable?" go":" lisible")+(sel===c.id?" leve":"")+'" data-id="'+c.id+'" data-p="'+c.pilier+'">'+carteHTML(c)+'</div>';
@@ -1862,6 +1893,43 @@ function basculerSon(){
   rendre();
 }
 
+function dimensionsJeu(){
+  var app=document.getElementById('app');
+  var w=window.innerWidth||390, h=window.innerHeight||844;
+  if(window.visualViewport){w=Math.min(w,window.visualViewport.width);h=window.visualViewport.height;}
+  var large=w>=900 && w/h>=1.2;
+  var largeur=Math.min(w-16,large?1600:720);
+  var hauteur=(app&&app.clientHeight)||h-16;
+  var facteur=Math.max(1,Math.min(1.65,h/1000));
+  var entete=Math.round(44*facteur), score=Math.round(52*facteur), message=Math.round(72*facteur), ecart=6;
+  var contenu=Math.max(120,hauteur-entete-score-4*ecart-message);
+  var colonnes=P&&P.mode==='table4'?4:5, lignes=2;
+  var largeurMain=large?(largeur-ecart)*.38:largeur;
+  var hautMain=large?contenu+message+ecart:Math.min(contenu*.47,2*((largeurMain-16)/colonnes)*1.4182+20);
+  if(large){
+    var maxCartes=P&&P.mode==='table4'?8:10, meilleur=0;
+    for(var c=2;c<=5;c++){
+      var r=Math.ceil(maxCartes/c), l=Math.min((largeurMain-18-(c-1)*6)/c,(hautMain-22-(r-1)*6)/r/1.4182);
+      if(l>meilleur){meilleur=l;colonnes=c;lignes=r;}
+    }
+  }
+  if(app&&app.style&&app.style.setProperty){
+    app.className=large?'large':'portrait';
+    app.style.setProperty('--entete-h',entete+'px');app.style.setProperty('--score-h',score+'px');
+    app.style.setProperty('--message-h',message+'px');app.style.setProperty('--main-h',Math.floor(hautMain)+'px');
+    app.style.setProperty('--ui-scale',facteur);
+  }
+  return {large:large,largeur:largeurMain-12,hauteur:Math.floor(hautMain),colonnes:colonnes,lignes:lignes};
+}
+var resizeJeu;
+function adapterEcran(){
+  clearTimeout(resizeJeu);
+  resizeJeu=setTimeout(function(){if(P&&!drag){rendre();}},120);
+}
+window.addEventListener('resize',adapterEcran);
+window.addEventListener('orientationchange',adapterEcran);
+if(window.visualViewport)window.visualViewport.addEventListener('resize',adapterEcran);
+
 function boutonJokersHTML(){
   return '<button class="acces-jokers'+(jokerArme||fantomeArme?' arme':'')+'" onclick="ouvrirTableau()" aria-label="Mes jokers ('+P.jokers[1].length+')">🃏 Jokers <b>'+P.jokers[1].length+'</b></button>';
 }
@@ -2039,7 +2107,7 @@ function rendre(){
 
   if(etape!=="verdict" && bouclierEngage(P,1))msg+='<br><small>🛡️ Protection : '+P.bouclier[1].restantes+' manche(s) restante(s)</small>';
 
-  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div>'+boutonJokersHTML()+'<button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
+  var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
     +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
     +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveau]+' · pioche '+P.pioche.length+'</span></div>'
     +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div></div>';
@@ -2088,7 +2156,7 @@ function rendre(){
   });
   h+='</div></div>';
 
-  h+='<div class="msg"><div class="msg-content">'+msg+'</div></div>';
+  h+='<div class="msg"><div class="msg-content">'+msg+'</div>'+boutonJokersHTML()+'</div>';
 
   // La main guide le choix du pilier : pendant le choix elle est ENTIÈREMENT
   // lisible. Une fois le pilier choisi, seules ses cartes restent, agrandies
@@ -2101,11 +2169,10 @@ function rendre(){
      Au repos : cinq colonnes, deux rangées. Une fois le pilier choisi : une
      seule rangée, et les cartes occupent toute la hauteur des deux — donc
      deux fois plus grandes, sans que la bande ne bouge d'un pixel. */
-  var largeurMain = Math.min(window.innerWidth||390, 520) - 20 - 2;
-  var carteL = largeurMain/5, carteH = carteL*1.4182;
-  var hautMain = Math.round(2*carteH + 6 + 12);       // 2 rangées + écart + marge
+  var dimensions=dimensionsJeu(), largeurMain=dimensions.largeur;
+  var hautMain=dimensions.hauteur;       // 2 rangées + écart + marge
   var zoom = (etape==="poser");
-  var cols=5, rangs=2, largeurCarte=0;
+  var cols=dimensions.colonnes, rangs=dimensions.lignes, largeurCarte=0;
   if(zoom){
     /* On essaie une rangée, puis deux, et on garde la disposition qui donne
        la PLUS GRANDE carte. Sur cinq cartes, une seule rangée les rendait
@@ -2126,7 +2193,7 @@ function rendre(){
     ? "repeat("+cols+","+Math.floor(largeurCarte)+"px)"
     : "repeat("+cols+",1fr)";
   h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;'
-    +'grid-template-rows:repeat('+rangs+',1fr);'
+    +'--card-max:'+Math.floor((hautMain-16-(rangs-1)*6)/rangs/1.4182)+'px;grid-template-rows:repeat('+rangs+',minmax(0,1fr));'
     +(zoom?'justify-content:center;align-content:center;':'')
     +'grid-template-columns:'+colonnes+'">';
   aMontrer.forEach(function(c){
