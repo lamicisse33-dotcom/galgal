@@ -1446,7 +1446,8 @@ function reglerMode(m){if(!MODES[m])return;modeJeu=m;try{localStorage.setItem('a
 var AUDIO = (function(){
   var ctx=null, coupe=false;
   // Deux potentiomètres séparés : les effets du jeu, et l'ambiance.
-  var volEffets=0.7;                  // piloté par le potentiomètre « Effets »
+  var volEffets=1;                    // les cartes passent devant l'ambiance
+  var presenceCartes=1.6;             // renforce le geste sans changer son timbre
 
   function reveil(){
     if(coupe) return null;
@@ -1469,7 +1470,7 @@ var AUDIO = (function(){
     flt.frequency.exponentialRampToValueAtTime(f1,c.currentTime+duree);
     var g=c.createGain();
     g.gain.setValueAtTime(0.0001,c.currentTime);
-    g.gain.exponentialRampToValueAtTime(vol*volEffets,c.currentTime+duree*0.18);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0001,vol*volEffets*presenceCartes),c.currentTime+duree*0.18);
     g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+duree);
     src.connect(flt); flt.connect(g); g.connect(c.destination); src.start();
   }
@@ -1481,7 +1482,7 @@ var AUDIO = (function(){
     o.type=type;
     o.frequency.setValueAtTime(f0,c.currentTime);
     o.frequency.exponentialRampToValueAtTime(f1,c.currentTime+duree);
-    g.gain.setValueAtTime(Math.max(0.0001,vol*volEffets),c.currentTime);
+    g.gain.setValueAtTime(Math.max(0.0001,vol*volEffets*presenceCartes),c.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+duree);
     o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+duree+0.02);
   }
@@ -1534,7 +1535,7 @@ var AUDIO = (function(){
 /* Musique de partie identique à Équilibre des choix. Les effets de cartes
    restent indépendants. Lecture après un geste, pause immédiate en arrière-plan. */
 var MUSIQUE = (function(){
-  var piste=null, volume=0.35, souhaite=false;
+  var piste=null, volume=0.18, souhaite=false;
   function obtenir(){
     if(!piste){
       if(typeof Audio==='undefined') return null;
