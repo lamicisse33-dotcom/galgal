@@ -924,12 +924,14 @@ var VOIX=(function(){
   };
 })();
 function basculerVoix(){VOIX.regler(!VOIX.active());if(VOIX.active())VOIX.dire('Voix activée');else VOIX.taire();rendre();}
+function deDu(pilier){ return (/^[aeiouyàâéèêëîïôöùûü]/i.test(pilier)?'d’':'de ')+pilier; }
 function annoncerVerdict(d){
   if(!d)return;
   if(P.mode==='table4'){
     var poseGagnant=(d.poses||[]).filter(function(x){return x.joueur===d.gagnant;})[0];
     var brakeur=poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant]);
     var NOM4={j1:'Brakeur',j2:'Multiplicateur',j4:'Bouclier'},dits=[];
+    if(d.poses&&d.poses.length)dits.push(d.poses.map(function(x){return (x.joueur===1?'Toi':SIEGE[x.joueur])+' '+(x.morte?'carte morte':x.valeur+' '+deDu(x.pilier));}).join(', ')+'.');
     (d.poses||[]).forEach(function(x){
       if(!x.joker||!NOM4[x.joker])return;
       if(brakeur&&x.joueur===d.gagnant)return;   // son Brakeur se dit une seule fois, ci-dessous
@@ -942,10 +944,12 @@ function annoncerVerdict(d){
     }
     var egal=!brakeur&&d.poses&&d.poses.filter(function(x){return x.valeur===d.poses.reduce(function(m,y){return Math.max(m,y.valeur);},0);}).length>1;
     if(egal)dits.push('Égalité. '+(d.gagnant===1?'Tu avais posé en premier, la manche est à toi.':SIEGE[d.gagnant]+' avait posé en premier, la manche est '+(d.equipe==='nous'?'à votre équipe.':'à leur équipe.')));
+    else if(!brakeur)dits.push('La manche est '+(d.equipe==='nous'?'à votre équipe.':'à leur équipe.'));
     if(dits.length)VOIX.dire(dits.join(' '));
     return;
   }
   var j=d.jokers||{}, bloque=d.bloque||{}, perdu=d.perdu||{}, phrases=[];
+  if(d.c1&&d.c2)phrases.push((d.c1.fantome?'Ton Fantôme':'Ton '+d.c1.pts+' '+deDu(d.c1.pilier))+' contre '+(d.c2.fantome?'son Fantôme':'son '+d.c2.pts+' '+deDu(d.c2.pilier))+'.');
   if(d.c1&&d.c1.fantome)phrases.push('Ton Fantôme valait '+d.c1.pts+'.');
   if(d.c2&&d.c2.fantome)phrases.push('Son Fantôme valait '+d.c2.pts+'.');
   var NOM={j1:'Brakeur',j2:'Multiplicateur',j4:'Bouclier'};
@@ -962,6 +966,7 @@ function annoncerVerdict(d){
   });
   if(brakeurDecide)phrases.push((d.gagnant===1?'Ton':'Son')+' Brakeur emporte la manche, quelle que soit la carte.');
   else if(d.egalite)phrases.push('Égalité. '+(d.ouvreur===1?'Tu avais ouvert, la manche est à toi.':'Elle avait ouvert, la manche est à elle.'));
+  else phrases.push(d.gagnant===1?'La manche est à toi.':'La manche est à elle.');
   if(phrases.length)VOIX.dire(phrases.join(' '));
 }
 
@@ -1501,6 +1506,7 @@ function plisVisibles4(p){
 function rendreFin4(){
   var nous=P.scores.nous,eux=P.scores.eux,gagne=nous>eux,nul=nous===eux;
   if(!P._compte){P._compte=true;STATS.finPartie(nous,eux,P.plis);
+    VOIX.dire(nul?'Partie nulle, '+nous+' partout.':(gagne?'Votre équipe a gagné la partie, '+nous+' à '+eux+'.':'Leur équipe a gagné la partie, '+eux+' à '+nous+'.'));
     if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:nous,s2:eux,mode:'table4'}));}catch(e){}}}
   oublierPartie();MUSIQUE.arrete();
   if(gagne||nul)AUDIO.fanfare();
@@ -2537,6 +2543,7 @@ function rendreFin(){
   if(P.mode==='table4')return rendreFin4();
   var gagne=P.s1>P.s2, nul=P.s1===P.s2;
   if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis);
+    VOIX.dire(nul?'Partie nulle, '+P.s1+' partout.':(gagne?'Tu as gagné la partie, '+P.s1+' à '+P.s2+'.':'Elle a gagné la partie, '+P.s2+' à '+P.s1+'.'));
     if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:P.s1,s2:P.s2}));}catch(e){}} }
   oublierPartie();
   MUSIQUE.arrete();

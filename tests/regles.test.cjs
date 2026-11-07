@@ -288,18 +288,21 @@ test('table à 4 : la voix annonce le Brakeur du gagnant avant toute égalité',
   const dire=d=>{dits.length=0;c.annoncerVerdict(d);return dits.slice();};
   // Égalité en tête entre Toi et Est, mais le Brakeur de Nord emporte la manche.
   assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2,'j1'),pose(4,1)],gagnant:3,equipe:'nous',bloque:{}}),
-    ['Le Brakeur de Nord emporte la manche, quelle que soit la carte.']);
+    ['Toi 9 de Santé, Est 9 de Santé, Nord 2 de Santé, Ouest 1 de Santé. Le Brakeur de Nord emporte la manche, quelle que soit la carte.']);
   assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2),pose(4,1,'j1')],gagnant:4,equipe:'eux',bloque:{}}),
-    ['Le Brakeur d’Ouest emporte la manche, quelle que soit la carte.']);
+    ['Toi 9 de Santé, Est 9 de Santé, Nord 2 de Santé, Ouest 1 de Santé. Le Brakeur d’Ouest emporte la manche, quelle que soit la carte.']);
   assert.deepEqual(dire({poses:[pose(1,3,'j1'),pose(2,9),pose(3,9),pose(4,1)],gagnant:1,equipe:'nous',bloque:{}}),
-    ['Ton Brakeur emporte la manche, quelle que soit la carte.']);
+    ['Toi 3 de Santé, Est 9 de Santé, Nord 9 de Santé, Ouest 1 de Santé. Ton Brakeur emporte la manche, quelle que soit la carte.']);
   // Brakeur bloqué : l'égalité reprend sa place.
   assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2,'j1'),pose(4,1)],gagnant:1,equipe:'nous',bloque:{3:true}}),
-    ['Nord avait joué son Brakeur, bloqué par un Bouclier. Égalité. Tu avais posé en premier, la manche est à toi.']);
-  // Sans Brakeur : l'annonce d'égalité inchangée, et rien sans égalité.
+    ['Toi 9 de Santé, Est 9 de Santé, Nord 2 de Santé, Ouest 1 de Santé. Nord avait joué son Brakeur, bloqué par un Bouclier. Égalité. Tu avais posé en premier, la manche est à toi.']);
+  // Sans Brakeur : l'annonce d'égalité inchangée ; sans égalité, à qui va la manche.
   assert.deepEqual(dire({poses:[pose(2,9),pose(1,9),pose(3,2),pose(4,1)],gagnant:2,equipe:'eux',bloque:{}}),
-    ['Égalité. Est avait posé en premier, la manche est à leur équipe.']);
-  assert.deepEqual(dire({poses:[pose(1,9),pose(2,8),pose(3,2),pose(4,1)],gagnant:1,equipe:'nous',bloque:{}}),[]);
+    ['Est 9 de Santé, Toi 9 de Santé, Nord 2 de Santé, Ouest 1 de Santé. Égalité. Est avait posé en premier, la manche est à leur équipe.']);
+  assert.deepEqual(dire({poses:[pose(1,9),pose(2,8),pose(3,2),pose(4,1)],gagnant:1,equipe:'nous',bloque:{}}),
+    ['Toi 9 de Santé, Est 8 de Santé, Nord 2 de Santé, Ouest 1 de Santé. La manche est à votre équipe.']);
+  assert.deepEqual(dire({poses:[pose(2,9),{joueur:1,pilier:'Amour',valeur:0,morte:true},pose(3,2),pose(4,1)],gagnant:2,equipe:'eux',bloque:{}}),
+    ['Est 9 de Santé, Toi carte morte, Nord 2 de Santé, Ouest 1 de Santé. La manche est à leur équipe.']);
 });
 test('la voix : le Brakeur qui décide se dit une seule fois, avec les jokers des autres',()=>{
   const duel=jeu().c;const dits=[];duel.VOIX={dire:t=>dits.push(t)};
@@ -310,14 +313,14 @@ test('la voix : le Brakeur qui décide se dit une seule fois, avec les jokers de
   const t4=jeu({atoutvie_mode:'table4'}).c;const dits4=[];t4.VOIX={dire:t=>dits4.push(t)};
   const pose=(joueur,valeur,joker=null)=>({joueur,pilier:'Santé',valeur,joker});
   t4.annoncerVerdict({poses:[pose(1,9,'j2'),pose(2,9),pose(3,2,'j1'),pose(4,1,'j4')],gagnant:3,equipe:'nous',bloque:{}});
-  assert.deepEqual(dits4,['Tu avais joué ton Multiplicateur. Ouest avait joué son Bouclier. Le Brakeur de Nord emporte la manche, quelle que soit la carte.']);
+  assert.deepEqual(dits4,['Toi 9 de Santé, Est 9 de Santé, Nord 2 de Santé, Ouest 1 de Santé. Tu avais joué ton Multiplicateur. Ouest avait joué son Bouclier. Le Brakeur de Nord emporte la manche, quelle que soit la carte.']);
 });
 test('la voix : le Fantôme s’annonce au moment du choix, avant son verdict',()=>{
   const duel=jeu().c,dits=[];duel.VOIX={dire:t=>dits.push(t)};
   const p=duel.P;p.initiative=1;duel.pilJ=null;duel.pilIA=null;duel.planIA=null;duel.etape='pilier';p.jokers[1]=[{id:'j5'}];
   duel.jouerFantomeSur('Santé');
   assert.equal(dits[0],'Fantôme sur Santé');assert.equal(duel.etape,'verdict');
-  assert.match(dits[1]||'',/^Ton Fantôme valait /);
+  assert.match(dits[1]||'',/^Ton Fantôme contre son \d+ (de |d’)\S+\. Ton Fantôme valait /);
 });
 test('la voix : rien ne se coupe, un doublon en attente ne se rejoue pas, couper la voix vide la file',()=>{
   const parle=[];let annules=0;
@@ -329,4 +332,20 @@ test('la voix : rien ne se coupe, un doublon en attente ne se rejoue pas, couper
   assert.deepEqual(parle.map(u=>u.text),['A','B','A']);assert.equal(annules,0);
   c.basculerVoix();assert.equal(annules,1);
   c.basculerVoix();c.VOIX.dire('B');assert.equal(parle.at(-1).text,'B');
+});
+test('la voix : les cartes jouées, puis à qui va la manche',()=>{
+  const duel=jeu().c,dits=[];duel.VOIX={dire:t=>dits.push(t)};
+  const c1={pts:30,pilier:'Amour'},c2={pts:25,pilier:'Santé'};
+  duel.annoncerVerdict({c1,c2,jokers:{},bloque:{},perdu:{},gagnant:1,ouvreur:1,egalite:false});
+  duel.annoncerVerdict({c1:{pts:20,pilier:'Argent'},c2:{pts:35,pilier:'Spiritualité'},jokers:{},bloque:{},perdu:{},gagnant:2,ouvreur:1,egalite:false});
+  duel.annoncerVerdict({c1:{pts:30,pilier:'Santé'},c2:{pts:30,pilier:'Santé'},jokers:{},bloque:{},perdu:{},gagnant:2,ouvreur:2,egalite:true});
+  assert.deepEqual(dits,['Ton 30 d’Amour contre son 25 de Santé. La manche est à toi.',
+    'Ton 20 d’Argent contre son 35 de Spiritualité. La manche est à elle.',
+    'Ton 30 de Santé contre son 30 de Santé. Égalité. Elle avait ouvert, la manche est à elle.']);
+});
+test('la voix : la fin de partie annonce le vainqueur et le score',()=>{
+  const dire=(s1,s2)=>{const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};c.P.s1=s1;c.P.s2=s2;c.rendreFin();return dits;};
+  assert.deepEqual(dire(120,80),['Tu as gagné la partie, 120 à 80.']);
+  assert.deepEqual(dire(60,90),['Elle a gagné la partie, 90 à 60.']);
+  assert.deepEqual(dire(70,70),['Partie nulle, 70 partout.']);
 });
