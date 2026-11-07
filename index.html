@@ -908,10 +908,12 @@ var VOIX=(function(){
     disponible:function(){return dispo;},
     active:function(){return active&&dispo;},
     regler:function(v){active=!!v;try{localStorage.setItem('atoutvie_voix',active?'oui':'non');}catch(e){}},
-    dire:function(texte){
+    /* `enchainer` : le verdict suit l'annonce du pilier ou du Fantôme dans le
+       même geste ; il passe après elle au lieu de la couper. */
+    dire:function(texte,enchainer){
       if(!active||!dispo||AUDIO.estMuet()||!texte)return;
       try{
-        speechSynthesis.cancel();
+        if(!enchainer)speechSynthesis.cancel();
         var u=new SpeechSynthesisUtterance(texte);
         u.lang='fr-FR';if(voixFr)u.voice=voixFr;u.rate=1;u.pitch=1;u.volume=1;
         speechSynthesis.speak(u);
@@ -924,28 +926,31 @@ function annoncerVerdict(d){
   if(!d)return;
   if(P.mode==='table4'){
     var poseGagnant=(d.poses||[]).filter(function(x){return x.joueur===d.gagnant;})[0];
-    if(poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant])){
-      var de=d.gagnant===1?null:SIEGE[d.gagnant];
-      VOIX.dire((de?'Le Brakeur '+(/^[aeiouy]/i.test(de)?'d’':'de ')+de:'Ton Brakeur')+' emporte la manche, quelle que soit la carte.');
-      return;
-    }
+    var brakeur=poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant]);
     var NOM4={j1:'Brakeur',j2:'Multiplicateur',j4:'Bouclier'},dits=[];
     (d.poses||[]).forEach(function(x){
       if(!x.joker||!NOM4[x.joker])return;
+      if(brakeur&&x.joueur===d.gagnant)return;   // son Brakeur se dit une seule fois, ci-dessous
       var qui=x.joueur===1?'Tu avais joué ton ':SIEGE[x.joueur]+' avait joué son ';
       dits.push(qui+NOM4[x.joker]+(d.bloque&&d.bloque[x.joueur]?', bloqué par un Bouclier.':'.'));
     });
-    var egal=d.poses&&d.poses.filter(function(x){return x.valeur===d.poses.reduce(function(m,y){return Math.max(m,y.valeur);},0);}).length>1;
+    if(brakeur){
+      var de=d.gagnant===1?null:SIEGE[d.gagnant];
+      dits.push((de?'Le Brakeur '+(/^[aeiouy]/i.test(de)?'d’':'de ')+de:'Ton Brakeur')+' emporte la manche, quelle que soit la carte.');
+    }
+    var egal=!brakeur&&d.poses&&d.poses.filter(function(x){return x.valeur===d.poses.reduce(function(m,y){return Math.max(m,y.valeur);},0);}).length>1;
     if(egal)dits.push('Égalité. '+(d.gagnant===1?'Tu avais posé en premier, la manche est à toi.':SIEGE[d.gagnant]+' avait posé en premier, la manche est '+(d.equipe==='nous'?'à votre équipe.':'à leur équipe.')));
-    if(dits.length)VOIX.dire(dits.join(' '));
+    if(dits.length)VOIX.dire(dits.join(' '),true);
     return;
   }
   var j=d.jokers||{}, bloque=d.bloque||{}, perdu=d.perdu||{}, phrases=[];
   if(d.c1&&d.c1.fantome)phrases.push('Ton Fantôme valait '+d.c1.pts+'.');
   if(d.c2&&d.c2.fantome)phrases.push('Son Fantôme valait '+d.c2.pts+'.');
   var NOM={j1:'Brakeur',j2:'Multiplicateur',j4:'Bouclier'};
+  var brakeurDecide=j[d.gagnant]==='j1'&&!bloque[d.gagnant];
   [1,2].forEach(function(q){
     if(!j[q]||!NOM[j[q]])return;
+    if(brakeurDecide&&q===d.gagnant)return;   // une seule phrase pour le Brakeur qui décide
     var qui=q===1?'Tu avais joué ton ':'Elle avait joué son ';
     if(bloque[q]){
       phrases.push(qui+NOM[j[q]]+', mais '+(q===1?'son':'ton')+' Bouclier a tenu'+(perdu[q]?' : il est brisé.':' : '+(q===1?'tu le récupères.':'elle le récupère.')));
@@ -953,9 +958,9 @@ function annoncerVerdict(d){
     else if(j[q]==='j4')phrases.push(qui+'Bouclier.');
     else if(j[q]==='j1')phrases.push(qui+'Brakeur.');
   });
-  if(j[d.gagnant]==='j1'&&!bloque[d.gagnant])phrases.push((d.gagnant===1?'Ton':'Son')+' Brakeur emporte la manche, quelle que soit la carte.');
+  if(brakeurDecide)phrases.push((d.gagnant===1?'Ton':'Son')+' Brakeur emporte la manche, quelle que soit la carte.');
   else if(d.egalite)phrases.push('Égalité. '+(d.ouvreur===1?'Tu avais ouvert, la manche est à toi.':'Elle avait ouvert, la manche est à elle.'));
-  if(phrases.length)VOIX.dire(phrases.join(' '));
+  if(phrases.length)VOIX.dire(phrases.join(' '),true);
 }
 
 function jokerIA(carte){
@@ -1051,7 +1056,7 @@ function jouerCarte(id){
 function jouerFantomeSur(p){
   if(P.mode==='table4')return jouerFantome4(p);
   if(etape!=='pilier' || !P.jokers[1].some(function(j){return j.id==='j5';}) || p===pilIA)return;
-  pilJ=p;terminerCoup('fantome');
+  pilJ=p;VOIX.dire('Fantôme sur '+p);terminerCoup('fantome');
 }
 
 
@@ -1373,7 +1378,7 @@ function jouerCarte4(id){
 function jouerFantome4(pil){
   if(etape!=="pilier")return;
   var o=options4(P,1,coups4);if(o.fantome.indexOf(pil)<0)return;
-  AUDIO.joker();
+  AUDIO.joker();VOIX.dire('Fantôme sur '+pil);
   coups4.push({joueur:1,pilier:pil,carte:"fantome",joker:null,conteste:o.contestables.indexOf(pil)>=0&&o.libres.indexOf(pil)<0});
   fantomeArme=false;choix4=null;avancer4();
 }
