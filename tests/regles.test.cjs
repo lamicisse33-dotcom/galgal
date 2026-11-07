@@ -320,7 +320,8 @@ test('la voix : le Fantôme s’annonce au moment du choix, avant son verdict',(
   const p=duel.P;p.initiative=1;duel.pilJ=null;duel.pilIA=null;duel.planIA=null;duel.etape='pilier';p.jokers[1]=[{id:'j5'}];
   duel.jouerFantomeSur('Santé');
   assert.equal(dits[0],'Fantôme sur Santé');assert.equal(duel.etape,'verdict');
-  assert.match(dits[1]||'',/^Ton Fantôme contre son \d+ (de |d’)\S+\. Ton Fantôme valait /);
+  assert.match(dits[1]||'',/^Ton Fantôme, \d+(\.\d+)? de Santé, contre son \d+ (de |d’)\S+\./);
+  assert.doesNotMatch(dits[1],/valait/);
 });
 test('la voix : rien ne se coupe, un doublon en attente ne se rejoue pas, couper la voix vide la file',()=>{
   const parle=[];let annules=0;
@@ -348,4 +349,15 @@ test('la voix : la fin de partie annonce le vainqueur et le score',()=>{
   assert.deepEqual(dire(120,80),['Tu as gagné la partie, 120 à 80.']);
   assert.deepEqual(dire(60,90),['Elle a gagné la partie, 90 à 60.']);
   assert.deepEqual(dire(70,70),['Partie nulle, 70 partout.']);
+});
+test('la voix : la valeur du Fantôme se dit dans la phrase des cartes',()=>{
+  const duel=jeu().c,dits=[];duel.VOIX={dire:t=>dits.push(t)};
+  duel.annoncerVerdict({c1:{pts:35,pilier:'Santé',fantome:true},c2:{pts:30,pilier:'Santé'},jokers:{},bloque:{},perdu:{},gagnant:1,ouvreur:1,egalite:false});
+  duel.annoncerVerdict({c1:{pts:30,pilier:'Argent'},c2:{pts:20,pilier:'Argent',fantome:true},jokers:{},bloque:{},perdu:{},gagnant:1,ouvreur:1,egalite:false});
+  assert.deepEqual(dits,['Ton Fantôme, 35 de Santé, contre son 30 de Santé. La manche est à toi.',
+    'Ton 30 d’Argent contre son Fantôme, 20 d’Argent. La manche est à toi.']);
+  const t4=jeu({atoutvie_mode:'table4'}).c,dits4=[];t4.VOIX={dire:t=>dits4.push(t)};
+  const pose=(joueur,valeur,fantome)=>({joueur,pilier:'Santé',valeur,carte:{pts:valeur,fantome:!!fantome},joker:null});
+  t4.annoncerVerdict({poses:[pose(1,35,true),pose(2,30),pose(3,10),pose(4,5)],gagnant:1,equipe:'nous',bloque:{}});
+  assert.deepEqual(dits4,['Toi Fantôme, 35 de Santé, Est 30 de Santé, Nord 10 de Santé, Ouest 5 de Santé. La manche est à votre équipe.']);
 });

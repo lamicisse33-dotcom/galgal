@@ -931,7 +931,7 @@ function annoncerVerdict(d){
     var poseGagnant=(d.poses||[]).filter(function(x){return x.joueur===d.gagnant;})[0];
     var brakeur=poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant]);
     var NOM4={j1:'Brakeur',j2:'Multiplicateur',j4:'Bouclier'},dits=[];
-    if(d.poses&&d.poses.length)dits.push(d.poses.map(function(x){return (x.joueur===1?'Toi':SIEGE[x.joueur])+' '+(x.morte?'carte morte':x.valeur+' '+deDu(x.pilier));}).join(', ')+'.');
+    if(d.poses&&d.poses.length)dits.push(d.poses.map(function(x){return (x.joueur===1?'Toi':SIEGE[x.joueur])+' '+(x.morte?'carte morte':(x.carte&&x.carte.fantome?'Fantôme, ':'')+x.valeur+' '+deDu(x.pilier));}).join(', ')+'.');
     (d.poses||[]).forEach(function(x){
       if(!x.joker||!NOM4[x.joker])return;
       if(brakeur&&x.joueur===d.gagnant)return;   // son Brakeur se dit une seule fois, ci-dessous
@@ -949,9 +949,7 @@ function annoncerVerdict(d){
     return;
   }
   var j=d.jokers||{}, bloque=d.bloque||{}, perdu=d.perdu||{}, phrases=[];
-  if(d.c1&&d.c2)phrases.push((d.c1.fantome?'Ton Fantôme':'Ton '+d.c1.pts+' '+deDu(d.c1.pilier))+' contre '+(d.c2.fantome?'son Fantôme':'son '+d.c2.pts+' '+deDu(d.c2.pilier))+'.');
-  if(d.c1&&d.c1.fantome)phrases.push('Ton Fantôme valait '+d.c1.pts+'.');
-  if(d.c2&&d.c2.fantome)phrases.push('Son Fantôme valait '+d.c2.pts+'.');
+  if(d.c1&&d.c2)phrases.push((d.c1.fantome?'Ton Fantôme, '+d.c1.pts+' '+deDu(d.c1.pilier)+',':'Ton '+d.c1.pts+' '+deDu(d.c1.pilier))+' contre '+(d.c2.fantome?'son Fantôme, '+d.c2.pts+' '+deDu(d.c2.pilier):'son '+d.c2.pts+' '+deDu(d.c2.pilier))+'.');
   var NOM={j1:'Brakeur',j2:'Multiplicateur',j4:'Bouclier'};
   var brakeurDecide=j[d.gagnant]==='j1'&&!bloque[d.gagnant];
   [1,2].forEach(function(q){
