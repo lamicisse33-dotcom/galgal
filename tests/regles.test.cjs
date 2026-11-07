@@ -295,7 +295,7 @@ test('table à 4 : la voix annonce le Brakeur du gagnant avant toute égalité',
     ['Ton Brakeur emporte la manche, quelle que soit la carte.']);
   // Brakeur bloqué : l'égalité reprend sa place.
   assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2,'j1'),pose(4,1)],gagnant:1,equipe:'nous',bloque:{3:true}}),
-    ['Égalité. Tu avais posé en premier, la manche est à toi.']);
+    ['Nord avait joué son Brakeur, bloqué par un Bouclier. Égalité. Tu avais posé en premier, la manche est à toi.']);
   // Sans Brakeur : l'annonce d'égalité inchangée, et rien sans égalité.
   assert.deepEqual(dire({poses:[pose(2,9),pose(1,9),pose(3,2),pose(4,1)],gagnant:2,equipe:'eux',bloque:{}}),
     ['Égalité. Est avait posé en premier, la manche est à leur équipe.']);
