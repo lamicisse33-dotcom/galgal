@@ -1,12 +1,12 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const test=require('node:test'),assert=require('node:assert/strict');
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-function jeu(saved={}){
+function jeu(saved={},env={}){
   if(!("atoutvie_guide" in saved))saved.atoutvie_guide="vu";
   const nodes=new Map(),timers=new Map();let tid=0;
   function node(){return {hidden:true,style:{},innerHTML:'',querySelector:()=>null,classList:{add(){},remove(){}},getBoundingClientRect:()=>({width:390,height:100,left:0,top:0})};}
   const ctx={console,Math,Date,Set,Map,JSON,Promise,navigator:{userAgent:'iPhone',platform:'iPhone'},location:{protocol:'https:'},innerWidth:390,innerHeight:844,matchMedia:()=>({matches:false}),localStorage:{getItem:k=>saved[k]??null,setItem:(k,v)=>saved[k]=v,removeItem:k=>{delete saved[k];}},setTimeout(f,ms){timers.set(++tid,{f,ms});return tid;},clearTimeout:id=>timers.delete(id),setInterval(){},clearInterval(){},requestAnimationFrame(){},addEventListener(){},document:{hidden:false,addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},querySelector:()=>null,querySelectorAll:()=>[],body:{appendChild(){}},createElement:node}};
-  ctx.window=ctx;vm.createContext(ctx);
+  Object.assign(ctx,env);ctx.window=ctx;vm.createContext(ctx);
   for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g))vm.runInContext(m[1],ctx);
   return {c:ctx,nodes,timers,saved};
 }
@@ -318,4 +318,15 @@ test('la voix : le Fantôme s’annonce au moment du choix, avant son verdict',(
   duel.jouerFantomeSur('Santé');
   assert.equal(dits[0],'Fantôme sur Santé');assert.equal(duel.etape,'verdict');
   assert.match(dits[1]||'',/^Ton Fantôme valait /);
+});
+test('la voix : rien ne se coupe, un doublon en attente ne se rejoue pas, couper la voix vide la file',()=>{
+  const parle=[];let annules=0;
+  const synth={getVoices:()=>[],speak:u=>parle.push(u),cancel:()=>{annules++;}};
+  const {c}=jeu({},{speechSynthesis:synth,SpeechSynthesisUtterance:function(t){this.text=t;}});
+  parle.length=0;c.VOIX.dire('A');c.VOIX.dire('A');c.VOIX.dire('B');
+  assert.deepEqual(parle.map(u=>u.text),['A','B']);assert.equal(annules,0);
+  parle[0].onend();c.VOIX.dire('A');
+  assert.deepEqual(parle.map(u=>u.text),['A','B','A']);assert.equal(annules,0);
+  c.basculerVoix();assert.equal(annules,1);
+  c.basculerVoix();c.VOIX.dire('B');assert.equal(parle.at(-1).text,'B');
 });

@@ -896,7 +896,7 @@ var VOIX=(function(){
   var active=true;
   try{active=localStorage.getItem('atoutvie_voix')!=='non';}catch(e){}
   var dispo=typeof speechSynthesis!=='undefined' && typeof SpeechSynthesisUtterance!=='undefined';
-  var voixFr=null;
+  var voixFr=null,file=[];
   function choisirVoix(){
     if(!dispo)return;
     var liste=speechSynthesis.getVoices();
@@ -908,20 +908,22 @@ var VOIX=(function(){
     disponible:function(){return dispo;},
     active:function(){return active&&dispo;},
     regler:function(v){active=!!v;try{localStorage.setItem('atoutvie_voix',active?'oui':'non');}catch(e){}},
-    /* `enchainer` : le verdict suit l'annonce du pilier ou du Fantôme dans le
-       même geste ; il passe après elle au lieu de la couper. */
-    dire:function(texte,enchainer){
+    dire:function(texte){
       if(!active||!dispo||AUDIO.estMuet()||!texte)return;
       try{
-        if(!enchainer)speechSynthesis.cancel();
+        if(file.indexOf(texte)>=0)return;
+        file.push(texte);if(file.length>4)file.shift();
         var u=new SpeechSynthesisUtterance(texte);
         u.lang='fr-FR';if(voixFr)u.voice=voixFr;u.rate=1;u.pitch=1;u.volume=1;
+        var retirer=function(){var i=file.indexOf(texte);if(i>=0)file.splice(i,1);};
+        u.onend=retirer;u.onerror=retirer;
         speechSynthesis.speak(u);
       }catch(e){}
-    }
+    },
+    taire:function(){file.length=0;try{if(dispo)speechSynthesis.cancel();}catch(e){}}
   };
 })();
-function basculerVoix(){VOIX.regler(!VOIX.active());if(VOIX.active())VOIX.dire('Voix activée');rendre();}
+function basculerVoix(){VOIX.regler(!VOIX.active());if(VOIX.active())VOIX.dire('Voix activée');else VOIX.taire();rendre();}
 function annoncerVerdict(d){
   if(!d)return;
   if(P.mode==='table4'){
@@ -940,7 +942,7 @@ function annoncerVerdict(d){
     }
     var egal=!brakeur&&d.poses&&d.poses.filter(function(x){return x.valeur===d.poses.reduce(function(m,y){return Math.max(m,y.valeur);},0);}).length>1;
     if(egal)dits.push('Égalité. '+(d.gagnant===1?'Tu avais posé en premier, la manche est à toi.':SIEGE[d.gagnant]+' avait posé en premier, la manche est '+(d.equipe==='nous'?'à votre équipe.':'à leur équipe.')));
-    if(dits.length)VOIX.dire(dits.join(' '),true);
+    if(dits.length)VOIX.dire(dits.join(' '));
     return;
   }
   var j=d.jokers||{}, bloque=d.bloque||{}, perdu=d.perdu||{}, phrases=[];
@@ -960,7 +962,7 @@ function annoncerVerdict(d){
   });
   if(brakeurDecide)phrases.push((d.gagnant===1?'Ton':'Son')+' Brakeur emporte la manche, quelle que soit la carte.');
   else if(d.egalite)phrases.push('Égalité. '+(d.ouvreur===1?'Tu avais ouvert, la manche est à toi.':'Elle avait ouvert, la manche est à elle.'));
-  if(phrases.length)VOIX.dire(phrases.join(' '),true);
+  if(phrases.length)VOIX.dire(phrases.join(' '));
 }
 
 function jokerIA(carte){
@@ -2027,7 +2029,7 @@ function aideHTML(){
 
 function basculerSon(){
   AUDIO.muet(!AUDIO.estMuet());
-  if(AUDIO.estMuet()) MUSIQUE.arrete(); else { AUDIO.pilier(); MUSIQUE.demarre(); }
+  if(AUDIO.estMuet()){ MUSIQUE.arrete(); VOIX.taire(); } else { AUDIO.pilier(); MUSIQUE.demarre(); }
   rendre();
 }
 
