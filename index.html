@@ -437,7 +437,8 @@ body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;paddin
 #app .msg-content{width:100%;min-width:0;max-height:100%;font-size:clamp(12px,1.7dvh,19px)}
 #app .msg .acces-jokers{position:static;align-self:center;min-width:76px;min-height:44px;padding:8px;border-radius:12px;border:1px solid #d0dff2;background:linear-gradient(145deg,#354e6c,#152b46);color:#fff;font:700 clamp(12px,1.6dvh,18px)/1.2 'Crimson Text',Georgia,serif;cursor:pointer}
 #app .msg .acces-jokers.arme{background:#dbe8fb;color:#10213a}
-#app .main,#app .main.zoom{height:100%!important;min-height:0;padding:7px;gap:6px;align-content:center;overflow:visible}
+#app .main{height:100%!important;min-height:0;padding:10px;gap:10px;align-content:start;justify-items:center;overflow:visible}#app .main.zoom{align-content:center}
+#app.portrait .main{padding:7px;gap:6px}  /* le téléphone garde sa main d'avant */
 #app .main .k{height:auto;max-height:100%;width:auto;max-width:100%;aspect-ratio:110/156}
 /* La largeur découle des deux limites : une carte ne s'étire jamais. */
 #app .main .k{width:min(100%,var(--card-max,100%))}
@@ -1480,7 +1481,7 @@ function rendre4(){
     var n=Math.max(1,aMontrer.length),dispo=hautMain-12,meilleur=0;
     [1,2].forEach(function(r){var cc=Math.ceil(n/r),colL=(largeurMain-8*(cc-1))/cc,L=Math.min((dispo-(r-1)*8)/r/1.4182,colL);if(L>meilleur){meilleur=L;cols=cc;rangs=r;largeurCarte=L;}});
   }
-  h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;--card-max:'+Math.floor((hautMain-16-(rangs-1)*6)/rangs/1.4182)+'px;grid-template-rows:repeat('+rangs+',minmax(0,1fr));'
+  h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;--card-max:'+Math.floor((hautMain-16-(rangs-1)*6)/rangs/1.4182)+'px;grid-template-rows:repeat('+rangs+','+(dimensions.large&&!zoom?'auto':'minmax(0,1fr)')+');'
     +(zoom?'justify-content:center;align-content:center;':'')
     +'grid-template-columns:'+(zoom?"repeat("+cols+","+Math.floor(largeurCarte)+"px)":"repeat("+cols+",1fr)")+'">';
   aMontrer.forEach(function(c){
@@ -2338,7 +2339,7 @@ function rendre(){
     ? "repeat("+cols+","+Math.floor(largeurCarte)+"px)"
     : "repeat("+cols+",1fr)";
   h+='<div class="main'+(zoom?" zoom":"")+'" style="height:'+hautMain+'px;'
-    +'--card-max:'+Math.floor((hautMain-16-(rangs-1)*6)/rangs/1.4182)+'px;grid-template-rows:repeat('+rangs+',minmax(0,1fr));'
+    +'--card-max:'+Math.floor((hautMain-16-(rangs-1)*6)/rangs/1.4182)+'px;grid-template-rows:repeat('+rangs+','+(dimensions.large&&!zoom?'auto':'minmax(0,1fr)')+');'
     +(zoom?'justify-content:center;align-content:center;':'')
     +'grid-template-columns:'+colonnes+'">';
   aMontrer.forEach(function(c){
