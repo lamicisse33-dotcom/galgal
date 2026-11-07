@@ -923,6 +923,12 @@ function basculerVoix(){VOIX.regler(!VOIX.active());if(VOIX.active())VOIX.dire('
 function annoncerVerdict(d){
   if(!d)return;
   if(P.mode==='table4'){
+    var poseGagnant=(d.poses||[]).filter(function(x){return x.joueur===d.gagnant;})[0];
+    if(poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant])){
+      var de=d.gagnant===1?null:SIEGE[d.gagnant];
+      VOIX.dire((de?'Le Brakeur '+(/^[aeiouy]/i.test(de)?'d’':'de ')+de:'Ton Brakeur')+' emporte la manche, quelle que soit la carte.');
+      return;
+    }
     var egal=d.poses&&d.poses.filter(function(x){return x.valeur===d.poses.reduce(function(m,y){return Math.max(m,y.valeur);},0);}).length>1;
     if(egal)VOIX.dire('Égalité. '+(d.gagnant===1?'Tu avais posé en premier, la manche est à toi.':SIEGE[d.gagnant]+' avait posé en premier, la manche est '+(d.equipe==='nous'?'à votre équipe.':'à leur équipe.')));
     return;

@@ -281,3 +281,23 @@ test('jokers : accès permanent en duel et à quatre, même épuisés, ouverture
     assert.deepEqual(a,b,`zones variables à ${w}×${h}`);
   }
 });
+test('table à 4 : la voix annonce le Brakeur du gagnant avant toute égalité',()=>{
+  const {c}=jeu({atoutvie_mode:'table4'});assert.equal(c.P.mode,'table4');
+  const dits=[];c.VOIX={dire:t=>dits.push(t)};
+  const pose=(joueur,valeur,joker=null)=>({joueur,pilier:'Santé',valeur,joker});
+  const dire=d=>{dits.length=0;c.annoncerVerdict(d);return dits.slice();};
+  // Égalité en tête entre Toi et Est, mais le Brakeur de Nord emporte la manche.
+  assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2,'j1'),pose(4,1)],gagnant:3,equipe:'nous',bloque:{}}),
+    ['Le Brakeur de Nord emporte la manche, quelle que soit la carte.']);
+  assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2),pose(4,1,'j1')],gagnant:4,equipe:'eux',bloque:{}}),
+    ['Le Brakeur d’Ouest emporte la manche, quelle que soit la carte.']);
+  assert.deepEqual(dire({poses:[pose(1,3,'j1'),pose(2,9),pose(3,9),pose(4,1)],gagnant:1,equipe:'nous',bloque:{}}),
+    ['Ton Brakeur emporte la manche, quelle que soit la carte.']);
+  // Brakeur bloqué : l'égalité reprend sa place.
+  assert.deepEqual(dire({poses:[pose(1,9),pose(2,9),pose(3,2,'j1'),pose(4,1)],gagnant:1,equipe:'nous',bloque:{3:true}}),
+    ['Égalité. Tu avais posé en premier, la manche est à toi.']);
+  // Sans Brakeur : l'annonce d'égalité inchangée, et rien sans égalité.
+  assert.deepEqual(dire({poses:[pose(2,9),pose(1,9),pose(3,2),pose(4,1)],gagnant:2,equipe:'eux',bloque:{}}),
+    ['Égalité. Est avait posé en premier, la manche est à leur équipe.']);
+  assert.deepEqual(dire({poses:[pose(1,9),pose(2,8),pose(3,2),pose(4,1)],gagnant:1,equipe:'nous',bloque:{}}),[]);
+});
