@@ -1455,7 +1455,7 @@ function rendre4(){
     var actif=can||conteste||morte||fant;
     var on=(choix4&&choix4.pilier===p);
     var cls="med"+(actif?" can":"")+(conteste&&!can?" contest":"")+(on?" on":"")+((!actif&&!on&&!sur.length)?" off":"");
-    var clic=actif?(fant?'jouerFantome4(\''+p+'\')':'choisirPilier4(\''+p+'\')'):'';
+    var clic=actif?(fant?'jouerFantome4(\''+p+'\')':'choisirPilier4(\''+p+'\')'):(etape==="verdict"||etape==="attente"?'':'refuserPilier(\''+p+'\')');
     var label=fant?'👻 Fantôme':(conteste&&!can?'⚔ contester':(morte?'carte morte':(sur.length?sur.map(function(x){return nomDe(x.joueur);}).join(' ⚔ '):(function(){
         var n=P.mains[1].filter(function(c){return c.pilier===p;}).length;return n?n+" carte"+(n>1?"s":""):"libre";})())));
     h+='<div class="'+cls+'" data-p="'+p+'" style="--acc:'+(on?"#F0D060":"#e05555")+'">'
@@ -1592,6 +1592,7 @@ var AUDIO = (function(){
     glisse: function(){ souffle(0.55, 700, 2200, 0.08); },
     /* Sa carte se retourne au verdict. */
     retourne:function(){ souffle(0.13, 4200, 2000, 0.06); },
+    refus:  function(){ corps("square",240,190,0.08,0.045); setTimeout(function(){ corps("square",200,160,0.10,0.045); },95); },
     /* Un joker part. */
     joker:  function(){ corps("square",700,1400,0.09,0.06); corps("sine",300,900,0.22,0.09); },
     /* La fanfare de victoire : un arpège qui monte, puis un éclat. */
@@ -1800,9 +1801,37 @@ function poser(id){
   if(dep) volerVers(c,dep,fin); else fin();
 }
 
+function refuser(raison){ AUDIO.refus(); if(raison)VOIX.dire(raison); }
+function raisonCarte(pil){
+  if(P.mode==='table4'){
+    if(etape==="poser"&&choix4&&!choix4.conteste&&!choix4.morte)return 'Tu as choisi '+choix4.pilier+' : joue une carte de '+choix4.pilier+'.';
+    if(etape==="pilier"){var o=options4(P,1,coups4);if(o.libres.indexOf(pil)<0)return pil+' est déjà pris.';}
+    return etape==="verdict"||etape==="attente"?'':'Ce n’est pas le moment.';
+  }
+  if(etape==="pilier"&&pilIA===pil)return pil+' est à elle : prends un autre pilier.';
+  if(etape==="poser"&&pilJ&&pil!==pilJ)return 'Tu as choisi '+pilJ+' : joue une carte de '+pilJ+'.';
+  if(etape==="pilier"&&fantomeArme)return 'Ton Fantôme est armé : pose-le sur un emblème.';
+  return '';
+}
+function raisonPilier(pil){
+  if(P.mode==='table4'){
+    if(etape!=="pilier")return etape==="poser"?'Tu as déjà choisi '+(choix4?choix4.pilier:'ton pilier')+'.':'';
+    var o=options4(P,1,coups4),pris=coups4.filter(function(c){return c.pilier===pil;});
+    if(pris.length>=2)return pil+' a déjà été contesté.';
+    if(pris.length===1&&EQUIPE[pris[0].joueur]===EQUIPE[1])return pil+' est à '+SIEGE[pris[0].joueur]+', ton partenaire : on ne conteste pas son partenaire.';
+    if(o.libres.indexOf(pil)>=0&&o.avecCarte.indexOf(pil)<0&&o.avecCarte.length)return 'Tu n’as pas de carte de '+pil+'.';
+    return pil+' n’est pas possible.';
+  }
+  if(etape==="poser")return 'Tu as déjà choisi '+pilJ+'.';
+  if(etape!=="pilier")return '';
+  if(pilIA===pil)return pil+' est à elle : prends un autre pilier.';
+  if(!P.mains[1].some(function(c){return c.pilier===pil;}))return 'Tu n’as pas de carte de '+pil+'.';
+  return pil+' n’est pas possible.';
+}
+function refuserPilier(pil){ refuser(raisonPilier(pil)); }
 /* Double contact : le premier soulève, le second envoie. */
 function toucher(id,pil){
-  if(jouablesMaintenant().indexOf(pil)<0) return;
+  if(jouablesMaintenant().indexOf(pil)<0){ refuser(raisonCarte(pil)); return; }
   if(sel===id){ poser(id); } else { sel=id; AUDIO.leve(); rendre(); }
 }
 
@@ -1858,16 +1887,18 @@ document.addEventListener("pointermove",function(e){
 });
 
 document.addEventListener("pointerdown",function(e){
-  var k=e.target.closest?e.target.closest(".k.go"):null;
+  /* Une carte injouable se touche aussi : le simple contact passe par
+     toucher(), qui dit pourquoi elle est refusée. Elle ne se déplace pas. */
+  var k=e.target.closest?e.target.closest(".k"):null;
   if(!k) return;
   var r=k.getBoundingClientRect();
-  drag={id:k.dataset.id,pil:(P.mode==='table4'&&choix4&&(choix4.conteste||choix4.morte))?choix4.pilier:k.dataset.p,el:k,r:r,x0:e.clientX,y0:e.clientY,parti:false};
+  drag={id:k.dataset.id,pil:(P.mode==='table4'&&choix4&&(choix4.conteste||choix4.morte))?choix4.pilier:k.dataset.p,el:k,r:r,x0:e.clientX,y0:e.clientY,parti:false,refus:!k.classList.contains("go")};
 });
 document.addEventListener("pointermove",function(e){
   if(!drag) return;
   var dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
   if(!drag.parti && Math.abs(dx)+Math.abs(dy)<9) return;
-  if(etape==="pilier"){ drag=null; return; }   // avant le pilier, le balayage sert à lire sa main
+  if(etape==="pilier"||drag.refus){ drag=null; return; }   // avant le pilier, le balayage sert à lire sa main
   if(!drag.parti){
     drag.parti=true; drag.el.classList.add("prise");
     var c=P.mains[1].filter(function(x){return x.id===drag.id;})[0];
@@ -2238,7 +2269,7 @@ function rendre(){
     var on=(pilJ===p||pilIA===p);
     var cls="med"+(can||canF?" can":"")+(on?" on":"")+((!can&&!canF&&!on)?" off":"")
       +(pilIA===p?" ia":"");   // c'est le clignotement qui désigne son pilier
-    var clic=can?'choisirPilier(\''+p+'\')':(canF?'jouerFantomeSur(\''+p+'\')':'');
+    var clic=can?'choisirPilier(\''+p+'\')':(canF?'jouerFantomeSur(\''+p+'\')':(etape==="verdict"?'':'refuserPilier(\''+p+'\')'));
     h+='<div class="'+cls+'" data-p="'+p+'" style="--acc:'+(pilJ===p?"#F0D060":"#e05555")+'">'
       +'<div class="rond e-'+k+'"'+(clic?' onclick="'+clic+'"':'')+'></div>'
       +'<div class="nb" style="color:'+(canF&&!can?"#c9a0ff":"#8b8397")+'">'
