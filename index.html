@@ -892,6 +892,45 @@ var NIVEAUX={apprentie:"Apprentie",sage:"Sage"};
 var niveau='apprentie';
 try{var nv=localStorage.getItem('atoutvie_niveau');if(NIVEAUX[nv])niveau=nv;}catch(e){}
 function reglerNiveau(n){if(!NIVEAUX[n])return;niveau=n;try{localStorage.setItem('atoutvie_niveau',n);}catch(e){}rendre();}
+var VOIX=(function(){
+  var active=true;
+  try{active=localStorage.getItem('atoutvie_voix')!=='non';}catch(e){}
+  var dispo=typeof speechSynthesis!=='undefined' && typeof SpeechSynthesisUtterance!=='undefined';
+  var voixFr=null;
+  function choisirVoix(){
+    if(!dispo)return;
+    var liste=speechSynthesis.getVoices();
+    voixFr=liste.filter(function(v){return /^fr/i.test(v.lang)&&v.localService;})[0]
+        ||liste.filter(function(v){return /^fr/i.test(v.lang);})[0]||null;
+  }
+  if(dispo){choisirVoix();try{speechSynthesis.onvoiceschanged=choisirVoix;}catch(e){}}
+  return {
+    disponible:function(){return dispo;},
+    active:function(){return active&&dispo;},
+    regler:function(v){active=!!v;try{localStorage.setItem('atoutvie_voix',active?'oui':'non');}catch(e){}},
+    dire:function(texte){
+      if(!active||!dispo||AUDIO.estMuet()||!texte)return;
+      try{
+        speechSynthesis.cancel();
+        var u=new SpeechSynthesisUtterance(texte);
+        u.lang='fr-FR';if(voixFr)u.voice=voixFr;u.rate=1;u.pitch=1;u.volume=1;
+        speechSynthesis.speak(u);
+      }catch(e){}
+    }
+  };
+})();
+function basculerVoix(){VOIX.regler(!VOIX.active());if(VOIX.active())VOIX.dire('Voix activée');rendre();}
+function annoncerVerdict(d){
+  if(!d)return;
+  if(P.mode==='table4'){
+    var egal=d.poses&&d.poses.filter(function(x){return x.valeur===d.poses.reduce(function(m,y){return Math.max(m,y.valeur);},0);}).length>1;
+    if(egal)VOIX.dire('Égalité. '+(d.gagnant===1?'Tu avais posé en premier, la manche est à toi.':SIEGE[d.gagnant]+' avait posé en premier, la manche est '+(d.equipe==='nous'?'à votre équipe.':'à leur équipe.')));
+    return;
+  }
+  var j=d.jokers||{};
+  if(j[d.gagnant]==='j1'&&!(d.bloque&&d.bloque[d.gagnant])){VOIX.dire((d.gagnant===1?'Ton':'Son')+' Brakeur emporte la manche, quelle que soit la carte.');return;}
+  if(d.egalite)VOIX.dire('Égalité. '+(d.ouvreur===1?'Tu avais ouvert, la manche est à toi.':'Elle avait ouvert, la manche est à elle.'));
+}
 
 function jokerIA(carte){
   if(!carte || carte.fantome)return null;
@@ -942,7 +981,7 @@ function tour(){
 function choisirPilier(p){
   if(P.mode==='table4')return choisirPilier4(p);
   if(etape!=='pilier')return;
-  AUDIO.pilier();pilJ=p;
+  AUDIO.pilier();pilJ=p;VOIX.dire(p);
   preparerIA(pilJ);
   cIA=planIA.carte;
   etape='poser';rendre();
@@ -965,6 +1004,7 @@ function terminerCoup(carteId){
   // Les vraies valeurs des Fantômes sont tirées une seule fois, par le moteur.
   cJ=dernier.c1;cIA=dernier.c2;
   jokerArme=null;fantomeArme=false;etape='verdict';sel=null;rendre();
+  annoncerVerdict(dernier);
 }
 function jouerCarte(id){
   if(P.mode==='table4')return jouerCarte4(id);
@@ -1264,7 +1304,7 @@ function avancer4(){
   var ordre=ordreManche4(P),i=coups4.length;
   if(i>=4){
     dernier=resoudreManche4(P,coups4.map(function(c){return {joueur:c.joueur,pilier:c.pilier,carte:c.carte,joker:c.joker};}));
-    etape="verdict";choix4=null;AUDIO.retourne();rendre();return;
+    etape="verdict";choix4=null;AUDIO.retourne();rendre();annoncerVerdict(dernier);return;
   }
   var j=ordre[i];
   if(j===1){etape="pilier";rendre();return;}
@@ -1285,7 +1325,7 @@ function choisirPilier4(pil){
   else if(o.contestables.indexOf(pil)>=0)choix4={pilier:pil,conteste:true,morte:false};
   else if(o.mortes.indexOf(pil)>=0)choix4={pilier:pil,conteste:false,morte:true};
   else return;
-  AUDIO.pilier();etape="poser";rendre();
+  AUDIO.pilier();VOIX.dire(choix4.conteste?'Contestation sur '+pil:pil);etape="poser";rendre();
 }
 function jouerCarte4(id){
   var carte=P.mains[1].find(function(c){return c.id===id;});if(!carte)return;
@@ -1892,6 +1932,7 @@ function reglagesHTML(){
     +'<button class="fermer" onclick="reglagesOuverts=false;palmaresOuvert=true;rendre()">🏆 Mon palmarès</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;aideOuverte=true;rendre()">Comment jouer</button>'
     +'<button class="fermer" onclick="basculerSon()">'+(AUDIO.estMuet()?'Activer le son':'Couper le son')+'</button>'
+    +(VOIX.disponible()?'<button class="fermer" onclick="basculerVoix()">'+(VOIX.active()?'🗣️ Voix : activée — couper':'🗣️ Voix : coupée — activer')+'</button><div class="note">La voix annonce le pilier choisi et, à égalité, qui emporte la manche.</div>':'')
     +'<button class="fermer" onclick="reglagesOuverts=false;ouvrirTableau()"'+(P.jokers[1].length?'':' disabled')+'>🃏 Mes jokers ('+P.jokers[1].length+')</button>'
     +(!dejaPosee() ? (invitation ? '<button class="fermer" onclick="document.getElementById(\'poser-oui\').click()">Installer ATOUT VIE</button>' : '<div class="note">Pour installer : '+(surIphone()?'Partager, puis « Sur l’écran d’accueil ».':'menu du navigateur, puis « Installer l’application ».')+'</div>') : '')
     +(swEnAttente?'<button class="fermer" onclick="appliquerMaj()">Mettre à jour le jeu</button>':'')
