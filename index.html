@@ -983,7 +983,12 @@ function tour(){
   sauverPartie();
   if(P.initiative===2 && !pilIA)preparerIA(null);
   etape=pilJ?'poser':'pilier';rendre();
+  if(etape==='pilier' && annonceOuverture!==P.manche){
+    annonceOuverture=P.manche;
+    VOIX.dire(P.initiative===1?'Tu ouvres.':'Elle ouvre sur '+pilIA+'.');
+  }
 }
+var annonceOuverture=null;
 function choisirPilier(p){
   if(P.mode==='table4')return choisirPilier4(p);
   if(etape!=='pilier')return;
