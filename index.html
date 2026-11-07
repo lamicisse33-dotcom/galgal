@@ -592,7 +592,7 @@ function tirage(graine, deja) {
 }
 function graineDuJour(date) {
   const d = date || new Date();
-  const j = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const j = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();   // le jour de Dakar (UTC)
   let h = 2166136261;
   for (const ch of String(j)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
   return { graine: h >>> 0, jour: j };
@@ -768,8 +768,8 @@ function resoudreManche(p, coup) {
     egalite: cO.pts === cS.pts,
   });
 
-  repiocher(p, ouvreur);
-  repiocher(p, second);
+  if(!cO.fantome) repiocher(p, ouvreur);
+  if(!cS.fantome) repiocher(p, second);
 
   p.manche += 1;
   p.initiative = second;      // l'initiative alterne
@@ -980,7 +980,7 @@ function jokerIA(carte){
 }
 function preparerIA(interdit){
   if(planIA)return;
-  if(niveau==='sage'){planIA=sageChoisit(interdit);pilIA=planIA.pil;planIA.joker=jokerSage(planIA.carte,planIA.gain);}
+  if(niveauEffectif()==='sage'){planIA=sageChoisit(interdit);pilIA=planIA.pil;planIA.joker=jokerSage(planIA.carte,planIA.gain);}
   else{planIA=iaChoisit(interdit);pilIA=planIA.pil;planIA.joker=jokerIA(planIA.carte);}
 }
 /* ═══ LA PARTIE NE SE PERD PLUS ════════════════════════════════════════
@@ -2001,7 +2001,7 @@ function reglagesHTML(){
     +'<div class="regle"><label>Adversaire</label><div class="niveaux" style="flex:1.4">'
       +'<button class="'+(niveau==='apprentie'?'on':'')+'" onclick="reglerNiveau(\'apprentie\')">Apprentie</button>'
       +'<button class="'+(niveau==='sage'?'on':'')+'" onclick="reglerNiveau(\'sage\')">Sage</button></div></div>'
-    +'<div class="note">'+(niveau==='sage'?'La Sage compte les cartes et sacrifie ses faibles. Elle gagne deux manches sur trois contre l’Apprentie.':'L’Apprentie joue sa plus forte carte. Passe à la Sage quand tu la bats souvent.')+'</div>'
+    +'<div class="note">'+(niveau==='sage'?'La Sage compte les cartes et sacrifie ses faibles. Elle gagne deux manches sur trois contre l’Apprentie.':'L’Apprentie joue ses grosses cartes et vise les piliers qu’elle n’a pas encore gagnés. Passe à la Sage quand tu la bats souvent.')+'</div>'
     +'<button class="fermer or" onclick="donneDuJour()">☀️ Donne du jour · '+libelleJour(graineDuJour().jour)+(resultatDuJour()?' — jouée : '+resultatDuJour().s1+'–'+resultatDuJour().s2:'')+'</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;palmaresOuvert=true;rendre()">🏆 Mon palmarès</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;aideOuverte=true;rendre()">Comment jouer</button>'
@@ -2024,10 +2024,10 @@ function aideHTML(){
     +'<p><b>Les points :</b> la plus forte carte gagne la somme des deux valeurs. À égalité, celui qui ouvre gagne. L’ouverture alterne à chaque manche. Exemple : Santé 40 bat Argent 25 et rapporte 65 points.</p>'
     +'<p>Les deux cartes sont rangées dans le pilier du vainqueur et ne se rejouent plus. Chacun repioche automatiquement tant que la pioche contient des cartes.</p>'
     +'<p><b>Bonus Équilibre :</b> remporte au moins une manche dans chacun des quatre piliers pour gagner <b>40 points supplémentaires, une seule fois par partie et par joueur</b>. Capturer une carte d’un autre pilier ne valide pas ce pilier. Ce bonus n’est pas doublé par le Multiplicateur.</p>'
-    +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible.<br><b>Multiplicateur :</b> double le pot, même si l’adversaire le remporte.<br><b>Bouclier :</b> protège la manche d’activation et la suivante contre ces deux jokers. Une attaque bloquée revient en main la première fois ; au deuxième blocage, le joker est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
-    +'<p><b>Deux adversaires :</b> l’Apprentie joue sa plus forte carte. La Sage compte les cartes posées, devine ce qui te reste et sacrifie ses faibles quand la manche est perdue. Compte toi aussi : 32 cartes, tu en vois une sur deux.</p>'
-    +'<p><b>La donne du jour :</b> chaque jour, la même main pour tout le monde, contre la Sage, en 10 manches. Compare ton score avec tes amis.</p>'
-    +'<p><b>La table à 4 :</b> toi et Nord contre Est et Ouest. 8 cartes chacun, pas de pioche, 8 manches, un joker chacun. L’ouvreur pose face cachée, puis chacun prend un pilier <b>encore libre</b> — quatre joueurs, quatre piliers. La plus forte des quatre gagne la somme des quatre pour son équipe. Tu peux <b style="color:#ff8a8a">contester</b> le pilier d’un adversaire : tu poses ta carte dessus, rien n’est vérifié ; en fin de manche, la plus forte des deux cartes de ce pilier gagne leur somme en plus. Une carte posée sur un pilier qui n’est pas le sien vaut 0. Le Bouclier protège les deux coéquipiers.</p>'
+    +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible ; la manche compte pour ton Équilibre, et si l’adversaire avait joué un Multiplicateur non bloqué, tu emportes le pot doublé.<br><b>Multiplicateur :</b> double le pot pour celui qui gagne la manche, même si c’est l’adversaire — joue-le quand tu tiens la manche.<br><b>Bouclier :</b> neutralise les jokers offensifs adverses (Brakeur, Multiplicateur) pendant la manche où tu le poses et la suivante — même si leur effet aurait pu te profiter. Un joker bloqué revient en main de son propriétaire la première fois ; au deuxième blocage, il est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50, tirée au moment de la pose ; tu ne pioches pas pour ce coup. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
+    +'<p><b>Deux adversaires :</b> l’Apprentie joue ses grosses cartes et vise les piliers qu’elle n’a pas encore gagnés. La Sage compte les cartes posées, devine ce qui te reste et sacrifie ses faibles quand la manche est perdue. Compte toi aussi : 32 cartes, tu en vois une sur deux.</p>'
+    +'<p><b>La donne du jour :</b> chaque jour (jour de Dakar), la même main pour tout le monde — toujours en duel, contre la Sage, en 10 manches, quels que soient tes réglages. Ta première tentative est celle qui compte ; les suivantes sont de l’entraînement. Compare ton score avec tes amis.</p>'
+    +'<p><b>La table à 4 :</b> toi et Nord contre Est et Ouest. 8 cartes chacun, pas de pioche, 8 manches, un joker chacun. L’ouvreur pose face cachée, puis chacun prend un pilier <b>encore libre</b> — quatre joueurs, quatre piliers. La plus forte des quatre gagne la somme des quatre pour son équipe. Tu peux <b style="color:#ff8a8a">contester</b> le pilier d’un adversaire : tu poses ta carte dessus, rien n’est vérifié ; en fin de manche, la plus forte des deux cartes de ce pilier gagne leur somme en plus. Une carte posée sur un pilier qui n’est pas le sien vaut 0 — dans la manche comme dans la contestation ; c’est aussi la seule issue quand tu n’as aucune carte d’un pilier libre. Un pilier ne se conteste qu’une fois ; à égalité sur un pilier contesté, le premier posé gagne. À égalité entre les quatre cartes, le premier posé gagne aussi. Le bonus Équilibre de 40 est collectif : il tombe quand ton équipe a gagné une manche sur chacun des quatre piliers. Le Bouclier protège les deux coéquipiers.</p>'
     +'<p><b>Durée :</b> 10 manches par défaut. Le choix 8, 10, 12 ou 16 dans les paramètres est conservé pour les prochaines parties. Le score le plus élevé gagne ; des scores identiques donnent une égalité.</p>'
     +'<button class="fermer" onclick="aideOuverte=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
 }
@@ -2138,8 +2138,9 @@ function enchainer(){
 function donneDuJour(){
   var g=graineDuJour();
   reglagesOuverts=false;
-  neuf({manches:10,rnd:tirage(g.graine),donne:g.jour});
+  neuf({manches:10,rnd:tirage(g.graine),donne:g.jour,mode:'duel'});
 }
+function niveauEffectif(){ return (P&&P.donne)?'sage':niveau; }
 function libelleJour(j){
   var mois=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
   return (j%100)+" "+mois[Math.floor(j/100)%100-1];
@@ -2255,7 +2256,7 @@ function rendre(){
 
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
     +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
-    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveau]+' · pioche '+P.pioche.length+'</span></div>'
+    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveauEffectif()]+' · pioche '+P.pioche.length+'</span></div>'
     +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div></div>';
 
   h+='<div class="mat"><div class="rang">';
@@ -2543,7 +2544,9 @@ function rendreFin(){
   var gagne=P.s1>P.s2, nul=P.s1===P.s2;
   if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis);
     VOIX.dire(nul?'Partie nulle, '+P.s1+' partout.':(gagne?'Tu as gagné la partie, '+P.s1+' à '+P.s2+'.':'Elle a gagné la partie, '+P.s2+' à '+P.s1+'.'));
-    if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:P.s1,s2:P.s2}));}catch(e){}} }
+    // la première tentative du jour est gardée ; les suivantes sont de l'entraînement
+    if(P.donne&&!resultatDuJour()){P._premiere=true;try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:P.s1,s2:P.s2}));}catch(e){}} }
+  var gardee=P.donne&&resultatDuJour();
   oublierPartie();
   MUSIQUE.arrete();
   if(gagne||nul){ AUDIO.fanfare(); }
@@ -2552,7 +2555,7 @@ function rendreFin(){
     +'<div class="fin"><div class="titre">'
       +(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
     +'<div class="score">'+P.s1+' <span style="opacity:.4">—</span> '+P.s2+'</div>'
-    +(P.donne?'<div class="donne">☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+'</div>':'')
+    +(P.donne?'<div class="donne">☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+(P._premiere?' · PREMIÈRE TENTATIVE':(gardee?' · ENTRAÎNEMENT — ta première tentative : '+gardee.s1+'–'+gardee.s2:''))+'</div>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '
     +Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
     +'<div class="bilan">'+Object.keys(P.plis).map(function(p){

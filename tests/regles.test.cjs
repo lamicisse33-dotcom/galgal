@@ -361,3 +361,21 @@ test('la voix : la valeur du Fantôme se dit dans la phrase des cartes',()=>{
   t4.annoncerVerdict({poses:[pose(1,35,true),pose(2,30),pose(3,10),pose(4,5)],gagnant:1,equipe:'nous',bloque:{}});
   assert.deepEqual(dits4,['Toi Fantôme, 35 de Santé, Est 30 de Santé, Nord 10 de Santé, Ouest 5 de Santé. La manche est à votre équipe.']);
 });
+test('donne du jour : le jour vient de l’horloge UTC (Dakar)',()=>{
+  const {c}=jeu();
+  assert.equal(c.graineDuJour(new Date(Date.UTC(2026,9,30,23,30))).jour,20261030);
+});
+test('donne du jour : toujours en duel, 10 manches, contre la Sage, quels que soient les réglages',()=>{
+  const {c}=jeu({atoutvie_mode:'table4',atoutvie_niveau:'apprentie'});
+  assert.equal(c.P.mode,'table4');
+  c.donneDuJour();
+  assert.notEqual(c.P.mode,'table4');assert.equal(c.P.total,10);assert.equal(c.niveauEffectif(),'sage');
+});
+test('Fantôme : son joueur ne pioche pas, la pioche ne perd qu’une carte',()=>{
+  const {c}=jeu(),p=c.nouvellePartie();p.jokers[1]=[{id:'j5'}];p.initiative=1;
+  const avant1=p.mains[1].length,avant2=p.mains[2].length,pioche=p.pioche.length;
+  const pil=c.piliersOuvrables(p,1)[0]||'Santé';
+  const pil2=c.piliersRepondables(p,2,pil)[0];const c2=p.mains[2].find(x=>x.pilier===pil2);
+  c.resoudreManche(p,{pilier1:pil,carte1:'fantome',pilier2:pil2,carte2:c2.id});
+  assert.equal(p.mains[1].length,avant1);assert.equal(p.mains[2].length,avant2);assert.equal(p.pioche.length,pioche-1);
+});

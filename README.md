@@ -35,14 +35,17 @@ Ce bonus n'est pas multiplié. L'ordinateur peut utiliser les quatre jokers,
 sans consulter la main adverse. La durée choisie (8, 10, 12 ou 16 manches)
 est conservée pour les parties suivantes ; elle ne modifie pas la partie en cours.
 
-Deux adversaires : l'**Apprentie** joue sa plus forte carte ; la **Sage** compte
+Deux adversaires : l'**Apprentie** joue ses grosses cartes et vise les piliers
+qu’elle n’a pas encore gagnés ; la **Sage** compte
 les cartes posées, estime ce qui reste dans la main adverse et sacrifie ses
 faibles quand la manche est perdue (66 % de victoires contre l'Apprentie sur
 4 000 parties simulées). Ni l'une ni l'autre ne lit la main du joueur — un
 test le garantit.
 
-La **donne du jour** (⚙️) distribue la même main à tout le monde, contre la
-Sage, en 10 manches ; le résultat se partage depuis l'écran de fin. Une
+La **donne du jour** (⚙️) : chaque jour (jour de Dakar), la même main pour
+tout le monde — toujours en duel, contre la Sage, en 10 manches, quels que
+soient tes réglages. Ta première tentative est celle qui compte ; les suivantes
+sont de l’entraînement. Le résultat se partage depuis l'écran de fin. Une
 partie interrompue (appel, rechargement) **reprend à la même manche**. La
 citation de la carte gagnante s'affiche à chaque verdict. Le joueur a son
 palmarès dans ⚙️ ; le tableau de bord complet reste derrière le code maître
