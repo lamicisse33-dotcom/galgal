@@ -182,14 +182,12 @@ body{margin:0;background:#0a0714;color:var(--text);font-family:'Crimson Text',Ge
   box-shadow:0 0 0 1px rgba(255,245,200,.9) inset, 0 0 4px rgba(201,162,39,.35)}
 .carte::after{content:"";position:absolute;inset:6.4% 8.4%;border-radius:3.4%/2.4%;
   border:1px solid rgba(201,162,39,.75)}
-/* les quatre médaillons d'angle */
+/* les deux médaillons d'angle, hors des coins des numéros */
 .carte .a{position:absolute;width:10%;aspect-ratio:1;border-radius:50%;
   background-size:100%;background-position:center;background-repeat:no-repeat;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));z-index:2}
-.carte .a1{left:11%;top:5%}
 .carte .a2{right:11%;top:5%}
 .carte .a3{left:11%;bottom:5%}
-.carte .a4{right:11%;bottom:5%}
 /* la valeur, en haut à gauche et à l'envers en bas à droite */
 .carte .v{position:absolute;z-index:3;font-family:Cinzel,serif;font-weight:900;line-height:1;
   font-size:clamp(16px,5.8vw,46px);   /* repli : voir la règle en cqw plus bas */
@@ -2190,8 +2188,7 @@ function carteHTML(c){
   var k=CLE[c.pilier]||"spi";
   var lg=(c.nom.length>11)?" long":"";
   return '<div class="carte'+lg+'">'
-    +'<div class="a a1 e-'+k+'"></div><div class="a a2 e-'+k+'"></div>'
-    +'<div class="a a3 e-'+k+'"></div><div class="a a4 e-'+k+'"></div>'
+    +'<div class="a a2 e-'+k+'"></div><div class="a a3 e-'+k+'"></div>'
     +'<div class="v v1">'+c.pts+'</div><div class="v v2">'+c.pts+'</div>'
     +'<div class="n n1">'+c.nom+'</div>'
     +'<div class="g e-'+k+'"></div>'
