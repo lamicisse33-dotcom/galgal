@@ -616,6 +616,9 @@ function nouvellePartie(opts = {}) {
     bonusEquilibre: { 1: false, 2: false },
     historique: [],
     donne: opts.donne || null,     // le jour (AAAAMMJJ) si c'est la donne du jour
+    // Le verdict de la partie, fixé à sa création : en changer dans les
+    // réglages ne touche pas la partie en cours. Sans précision : Classique.
+    verdict: opts.verdict === "equilibre" ? "equilibre" : "classique",
     rnd,
   };
 }
@@ -754,7 +757,8 @@ function resoudreManche(p, coup) {
 
   if(!p.piliersGagnes[gagnant].includes(pilierGagnant)) p.piliersGagnes[gagnant].push(pilierGagnant);
   var bonus=0;
-  if(!p.bonusEquilibre[gagnant] && p.piliersGagnes[gagnant].length===4){
+  // Le verdict Équilibre n'a pas de bonus : c'est le pilier le plus faible qui compte.
+  if(verdictDe(p)==="classique" && !p.bonusEquilibre[gagnant] && p.piliersGagnes[gagnant].length===4){
     bonus=40;p.bonusEquilibre[gagnant]=true;
     if(gagnant===1)p.s1+=bonus;else p.s2+=bonus;
   }
@@ -783,7 +787,76 @@ function consommerBouclier(p,c){
 }
 function bouclierEngage(p,c){return !!p.bouclier[c];}
 
-function finie(p) { return p.manche > p.total; }
+function finie(p) {
+  if (p.manche > p.total) return true;
+  // En duel, une partie s'arrête aussi quand plus personne n'a de carte.
+  return p.mode !== "table4" && !p.mains[1].length && !p.mains[2].length;
+}
+
+/* ═══ LE VERDICT « ÉQUILIBRE » — Lamine, 10 novembre 2026 ═══════════════
+   Ce n'est plus le total qui gagne, c'est l'équilibre d'une vie : le score
+   d'un camp est la somme de ses DEUX piliers les plus faibles. Les points
+   d'un pilier sont les butins des manches gagnées sur ce pilier
+   (Multiplicateur et Brakeur compris) ; à 4, la prime d'une contestation
+   va au pilier contesté. Pas de Bonus Équilibre. Égalité → le total le plus
+   haut ; égalité encore → départage (voir departage).
+   Le mode « Classique » garde l'ancien verdict : le total, bonus compris. */
+var VERDICTS={equilibre:"Équilibre",classique:"Classique"};
+function verdictDe(p){ return p && p.verdict==="equilibre" ? "equilibre" : "classique"; }
+function campsDe(p){ return p.mode==="table4" ? ["nous","eux"] : [1,2]; }
+function totalDe(p,camp){ return p.mode==="table4" ? p.scores[camp] : p["s"+camp]; }
+/* Fonction pure : la somme des deux plus faibles de quatre totaux
+   ({pilier: points} ou [a,b,c,d]). Un pilier absent vaut 0. */
+function scoreEquilibre(totauxParPilier){
+  var v=Array.isArray(totauxParPilier)?totauxParPilier.slice()
+       :PILIERS.map(function(x){return (totauxParPilier&&totauxParPilier[x])||0;});
+  while(v.length<4)v.push(0);
+  v.sort(function(a,b){return a-b;});
+  return v[0]+v[1];
+}
+/* Les deux piliers les plus faibles ; à égalité, dans l'ordre des piliers. */
+function piliersFaibles(totaux){
+  return PILIERS.slice().sort(function(a,b){return (totaux[a]||0)-(totaux[b]||0)||PILIERS.indexOf(a)-PILIERS.indexOf(b);}).slice(0,2);
+}
+/* Un pilier compte parmi les deux plus faibles s'il ne dépasse pas le
+   deuxième plus faible : à égalité, tous ceux qui le valent en sont. */
+function estFaible(totaux,pilier){
+  var v=PILIERS.map(function(x){return totaux[x]||0;}).sort(function(a,b){return a-b;});
+  return (totaux[pilier]||0)<=v[1];
+}
+/* Les points de chaque pilier d'un camp, lus dans l'historique — les
+   `n` premières manches seulement si `n` est donné. */
+function totauxParPilier(p,camp,n){
+  var t={};PILIERS.forEach(function(x){t[x]=0;});
+  p.historique.slice(0,n==null?p.historique.length:n).forEach(function(h){
+    var qui=p.mode==="table4"?h.equipe:h.gagnant;
+    if(qui===camp)t[h.pilierGagnant]+=h.butin;
+    (h.primes||[]).forEach(function(pr){if(pr.equipe===camp)t[pr.pilier]+=pr.montant;});
+  });
+  return t;
+}
+/* Le bilan d'une partie : pour chaque camp ses piliers, ses deux faibles,
+   son score d'Équilibre et son total ; puis qui gagne et à quel niveau
+   (« equilibre », « total », … ou « nul »). En Classique : le total. */
+function bilanPartie(p){
+  var camps=campsDe(p),a=camps[0],b=camps[1];
+  var r={verdict:verdictDe(p),camps:camps,totaux:{},faibles:{},equilibre:{},total:{},principal:{},gagnant:null,niveau:"nul"};
+  camps.forEach(function(c){
+    r.totaux[c]=totauxParPilier(p,c);r.faibles[c]=piliersFaibles(r.totaux[c]);
+    r.equilibre[c]=scoreEquilibre(r.totaux[c]);r.total[c]=totalDe(p,c);
+    r.principal[c]=r.verdict==="equilibre"?r.equilibre[c]:r.total[c];
+  });
+  var niveaux=r.verdict==="equilibre"?departage(p,r):[["total",r.total[a],r.total[b]]];
+  for(var i=0;i<niveaux.length;i++){
+    if(niveaux[i][1]!==niveaux[i][2]){r.gagnant=niveaux[i][1]>niveaux[i][2]?a:b;r.niveau=niveaux[i][0];break;}
+  }
+  return r;
+}
+/* Les niveaux de départage du verdict Équilibre, dans l'ordre. */
+function departage(p,r){
+  var a=r.camps[0],b=r.camps[1];
+  return [["equilibre",r.equilibre[a],r.equilibre[b]],["total",r.total[a],r.total[b]]];
+}
 
 
 
@@ -793,10 +866,26 @@ var CLE={"Spiritualité":"spi","Amour":"amo","Santé":"san","Argent":"arg"};
 var TEINTE={"Spiritualité":"#9B59B6","Amour":"#E74C3C","Santé":"#27AE60","Argent":"#F39C12"};
 var P=null, etape="ouvrir", pilJ=null, pilIA=null, cJ=null, cIA=null, dernier=null;
 
-var manchesSuivantes=10;
-try{var choixDuree=Number(localStorage.getItem('atoutvie_manches'));if([8,10,12,16].includes(choixDuree))manchesSuivantes=choixDuree;}catch(e){}
+/* Le verdict des prochaines parties : Équilibre par défaut, Classique au
+   choix. Chacun a sa durée : 16 manches en Équilibre (le paquet de 32 se
+   joue entièrement), 10 en Classique ; un autre choix reste mémorisé. */
+var verdictJeu='equilibre';
+try{var vdt=localStorage.getItem('atoutvie_verdict');if(VERDICTS[vdt])verdictJeu=vdt;}catch(e){}
+function cleManches(v){return v==='equilibre'?'atoutvie_manches_equilibre':'atoutvie_manches';}
+function lireManches(v){
+  try{var n=Number(localStorage.getItem(cleManches(v)));if([8,10,12,16].includes(n))return n;}catch(e){}
+  return v==='equilibre'?16:10;
+}
+var manchesSuivantes=lireManches(verdictJeu);
+function reglerVerdict(v){
+  if(!VERDICTS[v])return;
+  verdictJeu=v;try{localStorage.setItem('atoutvie_verdict',v);}catch(e){}
+  manchesSuivantes=lireManches(v);rendre();
+}
 var planIA=null;
-function neuf(opts){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre(); P=(opts&&opts.reprise)||(((opts&&opts.mode)||modeJeu)==='table4'?nouvelleTable4(opts||{}):nouvellePartie(opts||{manches:manchesSuivantes})); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
+function neuf(opts){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.demarre();
+  var o=Object.assign({verdict:verdictJeu},opts||{manches:manchesSuivantes});
+  P=(opts&&opts.reprise)||((o.mode||modeJeu)==='table4'?nouvelleTable4(o):nouvellePartie(o)); planIA=null; aideOuverte=false; reglagesOuverts=false; etape="ouvrir"; pilJ=pilIA=cJ=cIA=dernier=null; sel=null; dejaVole=null; aimantFait=null; retourneFait=null; tableauOuvert=false; fantomeArme=false;
   clearTimeout(minuterie); enchaine=null; jokerArme=null; tour(); }
 
 /* L'ordinateur décide avant de connaître la carte ou le joker du joueur.
@@ -1122,7 +1211,8 @@ function nouvelleTable4(opts){
     bouclier:{1:null,2:null,3:null,4:null},
     piliersGagnes:{nous:[],eux:[]},
     bonusEquilibre:{nous:false,eux:false},
-    historique:[], donne:opts.donne||null, rnd:rnd
+    historique:[], donne:opts.donne||null, rnd:rnd,
+    verdict:opts.verdict==="equilibre"?"equilibre":"classique"
   };
 }
 
@@ -1219,7 +1309,7 @@ function resoudreManche4(p,coups){
   });
   if(p.piliersGagnes[equipe].indexOf(gagnant.pilier)<0)p.piliersGagnes[equipe].push(gagnant.pilier);
   var bonus=0;
-  if(!p.bonusEquilibre[equipe]&&p.piliersGagnes[equipe].length===4){bonus=40;p.bonusEquilibre[equipe]=true;p.scores[equipe]+=bonus;}
+  if(verdictDe(p)==="classique"&&!p.bonusEquilibre[equipe]&&p.piliersGagnes[equipe].length===4){bonus=40;p.bonusEquilibre[equipe]=true;p.scores[equipe]+=bonus;}
 
   var h={manche:p.manche,ouvreur:p.ouvreur,poses:poses,gagnant:gagnant.joueur,equipe:equipe,
          pilierGagnant:gagnant.pilier,butin:butin,bonus:bonus,primes:primes,protege:protege,bloque:bloque,perdu:perdu};
@@ -1501,10 +1591,10 @@ function plisVisibles4(p){
   return P.plis[p].filter(function(x){return !(etape==="verdict"&&dernier&&x.manche===dernier.manche);});
 }
 function rendreFin4(){
-  var nous=P.scores.nous,eux=P.scores.eux,gagne=nous>eux,nul=nous===eux;
-  if(!P._compte){P._compte=true;STATS.finPartie(nous,eux,P.plis);
+  var B=bilanPartie(P),nous=B.principal.nous,eux=B.principal.eux,gagne=B.gagnant==="nous",nul=B.gagnant===null;
+  if(!P._compte){P._compte=true;STATS.finPartie(B.total.nous,B.total.eux,P.plis,nul?0:(gagne?1:-1));
     VOIX.dire(nul?'Partie nulle, '+nous+' partout.':(gagne?'Votre équipe a gagné la partie, '+nous+' à '+eux+'.':'Leur équipe a gagné la partie, '+eux+' à '+nous+'.'));
-    if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:nous,s2:eux,mode:'table4'}));}catch(e){}}}
+    if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:nous,s2:eux,gagne:gagne,mode:'table4'}));}catch(e){}}}
   oublierPartie();MUSIQUE.arrete();
   if(gagne||nul)AUDIO.fanfare();
   document.getElementById("app").innerHTML='<div id="ciel"></div><div class="fin"><div class="titre">'+(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
@@ -1973,7 +2063,7 @@ function reglerMusique(v){
   MUSIQUE.volume(+v/100);
   if(+v>0 && !AUDIO.estMuet()) MUSIQUE.demarre(); else if(+v===0) MUSIQUE.arrete();
 }
-function reglerManches(v){if(![8,10,12,16].includes(+v))return;manchesSuivantes=+v;try{localStorage.setItem('atoutvie_manches',String(manchesSuivantes));}catch(e){}rendre();}
+function reglerManches(v){if(![8,10,12,16].includes(+v))return;manchesSuivantes=+v;try{localStorage.setItem(cleManches(verdictJeu),String(manchesSuivantes));}catch(e){}rendre();}
 
 function reglagesHTML(){
   if(!reglagesOuverts) return "";
@@ -2131,12 +2221,14 @@ function enchainer(){
   },2200);
 }
 
-/* La donne du jour : la même main pour tout le monde, dix manches, et la
-   Sage en face. Un résultat par jour, qu'on peut partager. */
+/* La donne du jour : la même main pour tout le monde, et la Sage en face.
+   Toujours au verdict Équilibre, en 16 manches — le paquet entier —, quels
+   que soient les réglages : sinon deux scores du jour ne se comparent pas.
+   Un résultat par jour, qu'on peut partager. */
 function donneDuJour(){
   var g=graineDuJour();
   reglagesOuverts=false;
-  neuf({manches:10,rnd:tirage(g.graine),donne:g.jour,mode:'duel'});
+  neuf({manches:16,rnd:tirage(g.graine),donne:g.jour,mode:'duel',verdict:'equilibre'});
 }
 function niveauEffectif(){ return (P&&P.donne)?'sage':niveau; }
 function libelleJour(j){
@@ -2418,10 +2510,11 @@ var STATS = (function(){
   function ecrire(){ try{ localStorage.setItem("galgal_stats",JSON.stringify(st)); }catch(e){} }
   return {
     etat:function(){ return st; },
-    finPartie:function(s1,s2,plis){
+    finPartie:function(s1,s2,plis,issue){
       st.parties++;
-      if(s1>s2){ st.victoires++; st.serie++; if(st.serie>st.meilleureSerie) st.meilleureSerie=st.serie; }
-      else if(s1<s2){ st.defaites++; st.serie=0; }
+      if(issue===undefined)issue=s1>s2?1:(s1<s2?-1:0);   // 1 gagnée, -1 perdue, 0 nulle
+      if(issue>0){ st.victoires++; st.serie++; if(st.serie>st.meilleureSerie) st.meilleureSerie=st.serie; }
+      else if(issue<0){ st.defaites++; st.serie=0; }
       else { st.egalites++; }
       if(s1>st.meilleurScore) st.meilleurScore=s1;
       Object.keys(plis).forEach(function(p){
@@ -2479,7 +2572,7 @@ function palmaresHTML(){
     +ligne("Parties jouées",n)+ligne("Victoires",(st.victoires||0)+" · "+taux+" %")
     +ligne("Meilleur score",st.meilleurScore||0)+ligne("Série en cours",st.serie||0)+ligne("Meilleure série",st.meilleureSerie||0)
     +ligne("Pilier favori",favoris.length?favoris.join(", "):"—")
-    +ligne("Donne du jour",d?d.s1+' – '+d.s2+(d.s1>d.s2?' ✓':''):'pas encore jouée')
+    +ligne("Donne du jour",d?d.s1+' – '+d.s2+((d.gagne!==undefined?d.gagne:d.s1>d.s2)?' ✓':''):'pas encore jouée')
     +'<div class="note">Ces chiffres restent sur ton téléphone.</div>'
     +'<button class="fermer" onclick="palmaresOuvert=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
 }
@@ -2538,11 +2631,11 @@ function statsHTML(){
 
 function rendreFin(){
   if(P.mode==='table4')return rendreFin4();
-  var gagne=P.s1>P.s2, nul=P.s1===P.s2;
-  if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis);
-    VOIX.dire(nul?'Partie nulle, '+P.s1+' partout.':(gagne?'Tu as gagné la partie, '+P.s1+' à '+P.s2+'.':'Elle a gagné la partie, '+P.s2+' à '+P.s1+'.'));
+  var B=bilanPartie(P), s1=B.principal[1], s2=B.principal[2], gagne=B.gagnant===1, nul=B.gagnant===null;
+  if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis,nul?0:(gagne?1:-1));
+    VOIX.dire(nul?'Partie nulle, '+s1+' partout.':(gagne?'Tu as gagné la partie, '+s1+' à '+s2+'.':'Elle a gagné la partie, '+s2+' à '+s1+'.'));
     // la première tentative du jour est gardée ; les suivantes sont de l'entraînement
-    if(P.donne&&!resultatDuJour()){P._premiere=true;try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:P.s1,s2:P.s2}));}catch(e){}} }
+    if(P.donne&&!resultatDuJour()){P._premiere=true;try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:s1,s2:s2,gagne:gagne,verdict:B.verdict}));}catch(e){}} }
   var gardee=P.donne&&resultatDuJour();
   oublierPartie();
   MUSIQUE.arrete();
@@ -2551,7 +2644,7 @@ function rendreFin(){
     '<div id="ciel"></div>'
     +'<div class="fin"><div class="titre">'
       +(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
-    +'<div class="score">'+P.s1+' <span style="opacity:.4">—</span> '+P.s2+'</div>'
+    +'<div class="score">'+s1+' <span style="opacity:.4">—</span> '+s2+'</div>'
     +(P.donne?'<div class="donne">☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+(P._premiere?' · PREMIÈRE TENTATIVE':(gardee?' · ENTRAÎNEMENT — ta première tentative : '+gardee.s1+'–'+gardee.s2:''))+'</div>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '
     +Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
@@ -2571,8 +2664,8 @@ function rendreFin(){
 }
 function toast(t){var e=document.getElementById('toast');if(e)e.remove();e=document.createElement('div');e.id='toast';e.textContent=t;document.body.appendChild(e);setTimeout(function(){e.remove();},2700);}
 function textePartage(){
-  var a=P.mode==='table4'?P.scores.nous:P.s1, b=P.mode==='table4'?P.scores.eux:P.s2;
-  var issue=a>b?'Victoire':(a<b?'Défaite':'Égalité');
+  var B=bilanPartie(P),c=B.camps, a=B.principal[c[0]], b=B.principal[c[1]];
+  var issue=B.gagnant===c[0]?'Victoire':(B.gagnant===c[1]?'Défaite':'Égalité');
   var quoi=(P.donne?'Donne du '+libelleJour(P.donne):(P.mode==='table4'?'Table à 4':'Duel contre la '+NIVEAUX[niveau]));
   return 'ATOUT VIE — '+quoi+' : '+issue+' '+a+' – '+b+'. Et toi ?';
 }

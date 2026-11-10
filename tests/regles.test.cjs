@@ -48,10 +48,10 @@ test('bonus : un seul +40 par joueur, sur ses quatre piliers gagnés, hors multi
   for(const pil of piliers)r=manche(c,p,pil,{},2);
   assert.equal(r.bonus,40);assert.equal(p.s2,4*45+40);assert.equal(manche(c,p,'Santé',{},2).bonus,0);
 });
-test('durée : la partie en cours reste intacte, choix conservé au prochain démarrage',()=>{
-  const {c,saved}=jeu();c.reglerManches(16);assert.equal(c.P.total,10);assert.equal(saved.atoutvie_manches,'16');
+test('durée (Classique) : la partie en cours reste intacte, choix conservé au prochain démarrage',()=>{
+  const {c,saved}=jeu({atoutvie_verdict:'classique'});c.reglerManches(16);assert.equal(c.P.total,10);assert.equal(saved.atoutvie_manches,'16');
   c.neuf();assert.equal(c.P.total,16);c.reglerManches(3);assert.equal(c.manchesSuivantes,16);
-  assert.equal(jeu(saved).c.P.total,16);assert.equal(jeu({atoutvie_manches:'abc'}).c.P.total,10);
+  assert.equal(jeu(saved).c.P.total,16);assert.equal(jeu({atoutvie_verdict:'classique',atoutvie_manches:'abc'}).c.P.total,10);
 });
 test('IA : tous les jokers sont utilisables et son choix ne lit pas la main adverse',()=>{
   const {c}=jeu();
@@ -132,7 +132,7 @@ test('donne du jour : même graine, mêmes mains, mêmes Fantômes',()=>{
   const a=c.nouvellePartie({rnd:c.tirage(g.graine)}),b=c.nouvellePartie({rnd:c.tirage(g.graine)});
   assert.equal(a.mains[1].map(x=>x.id).join(),b.mains[1].map(x=>x.id).join());assert.equal(JSON.stringify(a.jokers),JSON.stringify(b.jokers));
   assert.equal(c.jouerFantome(a,a.jokers[1].some(j=>j.id==='j5')?1:2,'Amour').pts,c.jouerFantome(b,b.jokers[1].some(j=>j.id==='j5')?1:2,'Amour').pts);
-  c.donneDuJour();assert.equal(c.P.donne,c.graineDuJour().jour);assert.equal(c.P.total,10);
+  c.donneDuJour();assert.equal(c.P.donne,c.graineDuJour().jour);assert.equal(c.P.total,16);assert.equal(c.P.verdict,'equilibre');
   assert.ok(c.reglagesHTML.call(Object.assign(c,{reglagesOuverts:true})).includes('Donne du jour'));
 });
 test('reprise : une partie interrompue reprend à la même manche, avec les mêmes cartes',()=>{
@@ -344,8 +344,8 @@ test('la voix : les cartes jouées, puis à qui va la manche',()=>{
     'Ton 20 d’Argent contre son 35 de Spiritualité. La manche est à elle.',
     'Ton 30 de Santé contre son 30 de Santé. Égalité. Elle avait ouvert, la manche est à elle.']);
 });
-test('la voix : la fin de partie annonce le vainqueur et le score',()=>{
-  const dire=(s1,s2)=>{const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};c.P.s1=s1;c.P.s2=s2;c.rendreFin();return dits;};
+test('la voix (Classique) : la fin de partie annonce le vainqueur et le score',()=>{
+  const dire=(s1,s2)=>{const {c}=jeu({atoutvie_verdict:'classique'}),dits=[];c.VOIX={dire:t=>dits.push(t)};c.P.s1=s1;c.P.s2=s2;c.rendreFin();return dits;};
   assert.deepEqual(dire(120,80),['Tu as gagné la partie, 120 à 80.']);
   assert.deepEqual(dire(60,90),['Elle a gagné la partie, 90 à 60.']);
   assert.deepEqual(dire(70,70),['Partie nulle, 70 partout.']);
@@ -365,11 +365,11 @@ test('donne du jour : le jour vient de l’horloge UTC (Dakar)',()=>{
   const {c}=jeu();
   assert.equal(c.graineDuJour(new Date(Date.UTC(2026,9,30,23,30))).jour,20261030);
 });
-test('donne du jour : toujours en duel, 10 manches, contre la Sage, quels que soient les réglages',()=>{
-  const {c}=jeu({atoutvie_mode:'table4',atoutvie_niveau:'apprentie'});
+test('donne du jour : toujours en duel, en Équilibre, 16 manches, contre la Sage, quels que soient les réglages',()=>{
+  const {c}=jeu({atoutvie_mode:'table4',atoutvie_niveau:'apprentie',atoutvie_verdict:'classique',atoutvie_manches:'8'});
   assert.equal(c.P.mode,'table4');
   c.donneDuJour();
-  assert.notEqual(c.P.mode,'table4');assert.equal(c.P.total,10);assert.equal(c.niveauEffectif(),'sage');
+  assert.notEqual(c.P.mode,'table4');assert.equal(c.P.total,16);assert.equal(c.P.verdict,'equilibre');assert.equal(c.niveauEffectif(),'sage');
 });
 test('Fantôme : son joueur ne pioche pas, la pioche ne perd qu’une carte',()=>{
   const {c}=jeu(),p=c.nouvellePartie();p.jokers[1]=[{id:'j5'}];p.initiative=1;
