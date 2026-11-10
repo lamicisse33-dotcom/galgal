@@ -1168,7 +1168,10 @@ function moyenneDe(v){var s=0;v.forEach(function(x){s+=x;});return v.length?s/v.
    pilier déjà acquis : 0,2. Revenir sur un pilier perdu de loin, sans le
    reprendre : 0,3 ; s'en rapprocher seulement : 0,5. Le pilier sacrifié ne
    vaut presque plus rien, ni à gagner ni à perdre. */
-var POIDS_PIL={tete:1,creuser:0.2,loin:0.3,approche:0.5,loinEcart:60,sacrifie:0.1,malSacrifie:0.2,mal:1};
+/* Ajusté par la simulation (tests/simuler-piliers.cjs), 10 nov. 2026 : avec
+   le mal fait par l'adversaire à 1, la Sage ne battait l'Apprentie qu'à 53 %
+   et l'ancienne Sage qu'à 53 % ; à 2, elle les bat à 65 % et 64 % (2 000 parties). */
+var POIDS_PIL={tete:1,creuser:0.2,loin:0.3,approche:0.5,loinEcart:60,sacrifie:0.1,malSacrifie:0.2,mal:2};
 function poidsFront(tMoi,tAdv,pil,pot,sacrifie){
   if(sacrifie&&sacrifie===pil)return POIDS_PIL.sacrifie;
   var m=tMoi[pil]||0,o=tAdv[pil]||0;
