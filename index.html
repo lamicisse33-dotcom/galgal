@@ -1981,7 +1981,7 @@ function plisVisibles4(p){
 }
 function rendreFin4(){
   var B=bilanPartie(P),nous=B.principal.nous,eux=B.principal.eux,gagne=B.gagnant==="nous",nul=B.gagnant===null;
-  if(!P._compte){P._compte=true;STATS.finPartie(B.total.nous,B.total.eux,P.plis,nul?0:(gagne?1:-1));
+  if(!P._compte){P._compte=true;STATS.finPartie(B.total.nous,B.total.eux,P.plis,nul?0:(gagne?1:-1),{razzia:B.razzia&&gagne,decisive:B.niveau==='decisive',decisiveGagnee:B.niveau==='decisive'&&gagne});
     VOIX.dire(B.verdict!=='classique'?phraseVerdict(B):(nul?'Partie nulle, '+nous+' partout.':(gagne?'Votre équipe a gagné la partie, '+nous+' à '+eux+'.':'Leur équipe a gagné la partie, '+eux+' à '+nous+'.')));
     if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:nous,s2:eux,gagne:gagne,mode:'table4'}));}catch(e){}}}
   oublierPartie();MUSIQUE.arrete();
@@ -2487,7 +2487,7 @@ function reglagesHTML(){
     +'<div class="regle"><label>Adversaire</label><div class="niveaux" style="flex:1.4">'
       +'<button class="'+(niveau==='apprentie'?'on':'')+'" onclick="reglerNiveau(\'apprentie\')">Apprentie</button>'
       +'<button class="'+(niveau==='sage'?'on':'')+'" onclick="reglerNiveau(\'sage\')">Sage</button></div></div>'
-    +'<div class="note">'+(niveau==='sage'?'La Sage compte les cartes et sacrifie ses faibles. Elle gagne deux manches sur trois contre l’Apprentie.':'L’Apprentie joue ses grosses cartes et vise les piliers qu’elle n’a pas encore gagnés. Passe à la Sage quand tu la bats souvent.')+'</div>'
+    +'<div class="note">'+(niveau==='sage'?'La Sage compte les cartes et sacrifie ses faibles. Elle gagne deux manches sur trois contre l’Apprentie.':'L’Apprentie joue ses grosses cartes et '+(verdictJeu==='piliers'?'revient sur les piliers où elle est derrière de peu':verdictJeu==='equilibre'?'vise ses deux piliers les plus faibles':'vise les piliers qu’elle n’a pas encore gagnés')+'. Passe à la Sage quand tu la bats souvent.')+'</div>'
     +'<button class="fermer or" onclick="donneDuJour()">☀️ Donne du jour · '+libelleJour(graineDuJour().jour)+(resultatDuJour()?' — jouée : '+resultatDuJour().s1+'–'+resultatDuJour().s2:'')+'</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;palmaresOuvert=true;rendre()">🏆 Mon palmarès</button>'
     +'<button class="fermer" onclick="reglagesOuverts=false;aideOuverte=true;rendre()">Comment jouer</button>'
@@ -2504,20 +2504,21 @@ function aideHTML(){
   if(!aideOuverte)return '';
   return '<div class="voile"><div class="tableau" style="font-size:14px;line-height:1.5">'
     +'<h3>COMMENT JOUER</h3>'
-    +'<p><b>Le but :</b> équilibrer tes quatre piliers (verdict Équilibre, par défaut) — ou finir avec le plus de points (Classique). Chacun reçoit 10 cartes et 2 jokers. Les 12 cartes restantes forment la pioche.</p>'
+    +'<p><b>Le but :</b> remporter le plus de piliers (verdict Piliers, par défaut) — ou finir avec le plus de points (Classique). Chacun reçoit 10 cartes et 2 jokers. Les 12 cartes restantes forment la pioche.</p>'
     +'<p><b>Les quatre piliers :</b> Spiritualité, Amour, Santé et Argent. Chacun contient les valeurs 5, 10, 15, 20, 25, 30, 40 et 50.</p>'
     +'<p><b>Une manche :</b> choisis un pilier puis une carte de ce pilier — ou touche directement la carte, ce qui choisit son pilier. L’autre joueur doit prendre un pilier différent, sauf s’il ne possède aucune autre possibilité avec ses cartes. La carte adverse reste cachée jusqu’au résultat.</p>'
     +'<p><b>Les points :</b> la plus forte carte gagne la somme des deux valeurs. À égalité, celui qui ouvre gagne. L’ouverture alterne à chaque manche. Exemple : Santé 40 bat Argent 25 et rapporte 65 points.</p>'
     +'<p>Les deux cartes sont rangées dans le pilier du vainqueur et ne se rejouent plus. Chacun repioche automatiquement tant que la pioche contient des cartes.</p>'
-    +'<p><b>Le verdict Équilibre :</b> une manche gagnée remplit, de tout le pot, le pilier de ta carte gagnante. Ton score est la somme de tes <b>deux piliers les plus faibles</b> — un pilier délaissé te fait perdre, même avec un gros total. À égalité, le plus gros total l’emporte ; à égalité encore, le plus de 50 adverses capturés, puis de 40.</p>'
-    +'<p><b>Une fin de partie à cartes connues :</b> en Équilibre, la partie dure 16 manches et le paquet entier se joue. Quand la pioche est vide, tu as vu passer toutes les autres cartes : tu sais exactement ce qui reste dans la main adverse. Compte, et garde de quoi remplir le pilier qui te manque.</p>'
+    +'<p><b>Le verdict Piliers :</b> une manche gagnée met tout le pot sur le pilier de ta carte gagnante. À la fin, chaque pilier va à qui y a gagné le plus de points — à égalité, 0-0 compris, il n’est à personne. Le plus de piliers gagne la partie ; quatre à zéro, c’est une <b>Razzia</b>.</p>'
+    +'<p><b>La manche décisive :</b> à deux piliers partout (ou un partout, ou aucun), une manche de plus, en mort subite, sur un pilier tiré au sort parmi ceux à égalité — sinon parmi les quatre. Chacun pose une carte de ce pilier s’il en a, sinon n’importe laquelle : elle compte quand même. Pas de joker ; si une main est vide, elle reçoit deux cartes tirées des plis, face connue. La plus forte gagne ; à égalité, celui qui n’avait pas l’initiative à la dernière manche.</p>'
+    +'<p><b>Une fin de partie à cartes connues :</b> la partie dure 16 manches et le paquet entier se joue. Quand la pioche est vide, tu as vu passer toutes les autres cartes : tu sais exactement ce qui reste dans la main adverse. Compte, et garde de quoi reprendre le pilier qui te manque.</p>'
     +'<p><b>Le mode Classique</b> (paramètres → Verdict) : le plus gros total gagne, en 10 manches par défaut.</p>'
     +'<p><b>Bonus Équilibre (Classique) :</b> remporte au moins une manche dans chacun des quatre piliers pour gagner <b>40 points supplémentaires, une seule fois par partie et par joueur</b>. Capturer une carte d’un autre pilier ne valide pas ce pilier. Ce bonus n’est pas doublé par le Multiplicateur.</p>'
-    +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible ; la manche compte pour ton Équilibre, et si l’adversaire avait joué un Multiplicateur non bloqué, tu emportes le pot doublé.<br><b>Multiplicateur :</b> double le pot pour celui qui gagne la manche, même si c’est l’adversaire — joue-le quand tu tiens la manche.<br><b>Bouclier :</b> neutralise les jokers offensifs adverses (Brakeur, Multiplicateur) pendant la manche où tu le poses et la suivante — même si leur effet aurait pu te profiter. Un joker bloqué revient en main de son propriétaire la première fois ; au deuxième blocage, il est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50, tirée au moment de la pose ; tu ne pioches pas pour ce coup. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
-    +'<p><b>Deux adversaires :</b> l’Apprentie joue ses grosses cartes et vise ses deux piliers les plus faibles (en Classique : ceux qu’elle n’a pas encore gagnés). La Sage compte les cartes posées, devine ce qui te reste, sacrifie ses faibles quand la manche est perdue et, en Équilibre, s’en prend à tes piliers faibles. Compte toi aussi : 32 cartes, tu en vois une sur deux.</p>'
-    +'<p><b>La donne du jour :</b> chaque jour (jour de Dakar), la même main pour tout le monde — toujours en duel, contre la Sage, au verdict Équilibre en 16 manches, quels que soient tes réglages. Ta première tentative est celle qui compte ; les suivantes sont de l’entraînement. Compare ton score avec tes amis.</p>'
-    +'<p><b>La table à 4 :</b> toi et Nord contre Est et Ouest. 8 cartes chacun, pas de pioche, 8 manches, un joker chacun. L’ouvreur pose face cachée, puis chacun prend un pilier <b>encore libre</b> — quatre joueurs, quatre piliers. La plus forte des quatre gagne la somme des quatre pour son équipe. Tu peux <b style="color:#ff8a8a">contester</b> le pilier d’un adversaire : tu poses ta carte dessus, rien n’est vérifié ; en fin de manche, la plus forte des deux cartes de ce pilier gagne leur somme en plus. Une carte posée sur un pilier qui n’est pas le sien vaut 0 — dans la manche comme dans la contestation ; c’est aussi la seule issue quand tu n’as aucune carte d’un pilier libre. Un pilier ne se conteste qu’une fois ; à égalité sur un pilier contesté, le premier posé gagne. À égalité entre les quatre cartes, le premier posé gagne aussi. En Équilibre, le score de l’équipe est la somme de ses deux piliers les plus faibles ; la prime d’une contestation va au pilier contesté. En Classique, le bonus Équilibre de 40 est collectif : il tombe quand ton équipe a gagné une manche sur chacun des quatre piliers. Le Bouclier protège les deux coéquipiers.</p>'
-    +'<p><b>Durée :</b> 16 manches par défaut en Équilibre, 10 en Classique. Le choix 8, 10, 12 ou 16 dans les paramètres est conservé pour les prochaines parties, pour chaque verdict.</p>'
+    +'<p><b>Brakeur :</b> remporte le pot même avec une carte plus faible ; le pot va sur ton pilier, et si l’adversaire avait joué un Multiplicateur non bloqué, tu emportes le pot doublé.<br><b>Multiplicateur :</b> double le pot pour celui qui gagne la manche, même si c’est l’adversaire — joue-le quand tu tiens la manche.<br><b>Bouclier :</b> neutralise les jokers offensifs adverses (Brakeur, Multiplicateur) pendant la manche où tu le poses et la suivante — même si leur effet aurait pu te profiter. Un joker bloqué revient en main de son propriétaire la première fois ; au deuxième blocage, il est détruit.<br><b>Fantôme :</b> remplace ta carte, sur le pilier choisi, avec une valeur surprise de 5 à 50, tirée au moment de la pose ; tu ne pioches pas pour ce coup. Il se choisit avant les cartes ; les autres jokers se choisissent après les piliers. Un seul joker peut être joué par joueur et par manche.</p>'
+    +'<p><b>Deux adversaires :</b> l’Apprentie joue ses grosses cartes, revient sur les piliers où elle est derrière de peu et jette ses petites cartes là où elle est trop loin (en Classique : elle vise les piliers qu’elle n’a pas encore gagnés). La Sage compte les cartes posées, devine ce qui te reste, prend la tête des piliers disputés et sacrifie le pilier perdu d’avance quand elle en tient deux. Compte toi aussi : 32 cartes, tu en vois une sur deux.</p>'
+    +'<p><b>La donne du jour :</b> chaque jour (jour de Dakar), la même main pour tout le monde — toujours en duel, contre la Sage, au verdict Piliers en 16 manches, quels que soient tes réglages. Ta première tentative est celle qui compte ; les suivantes sont de l’entraînement. Compare ton score avec tes amis.</p>'
+    +'<p><b>La table à 4 :</b> toi et Nord contre Est et Ouest. 8 cartes chacun, pas de pioche, 8 manches, un joker chacun. L’ouvreur pose face cachée, puis chacun prend un pilier <b>encore libre</b> — quatre joueurs, quatre piliers. La plus forte des quatre gagne la somme des quatre pour son équipe. Tu peux <b style="color:#ff8a8a">contester</b> le pilier d’un adversaire : tu poses ta carte dessus, rien n’est vérifié ; en fin de manche, la plus forte des deux cartes de ce pilier gagne leur somme en plus. Une carte posée sur un pilier qui n’est pas le sien vaut 0 — dans la manche comme dans la contestation ; c’est aussi la seule issue quand tu n’as aucune carte d’un pilier libre. Un pilier ne se conteste qu’une fois ; à égalité sur un pilier contesté, le premier posé gagne. À égalité entre les quatre cartes, le premier posé gagne aussi. En Piliers, chaque pilier va à l’équipe qui y a le plus de points ; la prime d’une contestation va au pilier contesté ; la manche décisive se joue à quatre, une carte chacun, et l’équipe de la plus forte gagne. En Classique, le bonus Équilibre de 40 est collectif : il tombe quand ton équipe a gagné une manche sur chacun des quatre piliers. Le Bouclier protège les deux coéquipiers.</p>'
+    +'<p><b>Durée :</b> 16 manches par défaut en Piliers, 10 en Classique. Le choix 8, 10, 12 ou 16 dans les paramètres est conservé pour les prochaines parties, pour chaque verdict.</p>'
     +'<button class="fermer" onclick="aideOuverte=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
 }
 
@@ -3016,7 +3017,7 @@ function lancerFeux(){
    par pilier. Conservé d'une session à l'autre. */
 var STATS = (function(){
   var vide={parties:0,victoires:0,defaites:0,egalites:0,meilleurScore:0,
-            serie:0,meilleureSerie:0,piliers:{},cinquante:0,recordCinquante:0};
+            serie:0,meilleureSerie:0,piliers:{},cinquante:0,recordCinquante:0,razzias:0,decisives:0,decisivesGagnees:0};
   function lire(){
     try{ var b=localStorage.getItem("galgal_stats");
          return b? Object.assign({},vide,JSON.parse(b)) : Object.assign({},vide); }
@@ -3026,8 +3027,12 @@ var STATS = (function(){
   function ecrire(){ try{ localStorage.setItem("galgal_stats",JSON.stringify(st)); }catch(e){} }
   return {
     etat:function(){ return st; },
-    finPartie:function(s1,s2,plis,issue){
+    finPartie:function(s1,s2,plis,issue,piliers){
       st.parties++;
+      // Verdict Piliers : les Razzias (4-0) gagnées, les manches décisives jouées et gagnées.
+      if(piliers){ if(piliers.razzia)st.razzias=(st.razzias||0)+1;
+        if(piliers.decisive)st.decisives=(st.decisives||0)+1;
+        if(piliers.decisiveGagnee)st.decisivesGagnees=(st.decisivesGagnees||0)+1; }
       if(issue===undefined)issue=s1>s2?1:(s1<s2?-1:0);   // 1 gagnée, -1 perdue, 0 nulle
       if(issue>0){ st.victoires++; st.serie++; if(st.serie>st.meilleureSerie) st.meilleureSerie=st.serie; }
       else if(issue<0){ st.defaites++; st.serie=0; }
@@ -3094,6 +3099,7 @@ function palmaresHTML(){
     +ligne("Parties jouées",n)+ligne("Victoires",(st.victoires||0)+" · "+taux+" %")
     +ligne("Meilleur score",st.meilleurScore||0)+ligne("Série en cours",st.serie||0)+ligne("Meilleure série",st.meilleureSerie||0)
     +ligne("Pilier favori",favoris.length?favoris.join(", "):"—")
+    +ligne("Razzias en carrière",st.razzias||0)+ligne("Manches décisives gagnées",(st.decisivesGagnees||0)+(st.decisives?' sur '+st.decisives:''))
     +ligne("50 capturés en carrière",st.cinquante||0)+ligne("Record de 50 en une partie",st.recordCinquante||0)
     +ligne("Donne du jour",d?d.s1+' – '+d.s2+((d.gagne!==undefined?d.gagne:d.s1>d.s2)?' ✓':''):'pas encore jouée')
     +'<div class="note">Ces chiffres restent sur ton téléphone.</div>'
@@ -3107,10 +3113,10 @@ function fermerGuide(){guideOuvert=false;try{localStorage.setItem('atoutvie_guid
 function guideHTML(){
   if(!guideOuvert)return "";
   return '<div class="voile"><div class="tableau guide"><h3>ATOUT VIE</h3>'
-    +'<p>Quatre piliers de la vie — <b style="color:#9B59B6">Spiritualité</b>, <b style="color:#E74C3C">Amour</b>, <b style="color:#27AE60">Santé</b>, <b style="color:#F39C12">Argent</b>. '+(verdictJeu==='equilibre'?'Seize manches. Ton score : tes deux piliers les plus faibles — garde ta vie en équilibre.':'Dix manches. Le plus de points gagne.')+'</p>'
+    +'<p>Quatre piliers de la vie — <b style="color:#9B59B6">Spiritualité</b>, <b style="color:#E74C3C">Amour</b>, <b style="color:#27AE60">Santé</b>, <b style="color:#F39C12">Argent</b>. '+(verdictJeu==='piliers'?'Seize manches. Chaque pilier va à qui y a le plus de points : le plus de piliers gagne.':verdictJeu==='equilibre'?'Seize manches. Ton score : tes deux piliers les plus faibles — garde ta vie en équilibre.':'Dix manches. Le plus de points gagne.')+'</p>'
     +'<div class="pas"><div class="num">1</div><div><b>Choisis un pilier</b> en touchant son emblème — ou touche directement une carte : son pilier est choisi en même temps. L’adversaire doit en prendre un autre.</div></div>'
     +'<div class="pas"><div class="num">2</div><div><b>Pose une carte</b> de ce pilier : glisse-la, ou touche-la deux fois.</div></div>'
-    +'<div class="pas"><div class="num">3</div><div><b>La plus forte gagne la somme des deux.</b> '+(verdictJeu==='equilibre'?'Elle remplit le pilier de ta carte : ne laisse aucun pilier vide.':'Gagne une manche dans les quatre piliers : +40.')+' Tes jokers : bouton 🃏 sous le plateau.</div></div>'
+    +'<div class="pas"><div class="num">3</div><div><b>La plus forte gagne la somme des deux.</b> '+(verdictJeu==='piliers'?'Elle va sur le pilier de ta carte : prends la tête du plus de piliers.':verdictJeu==='equilibre'?'Elle remplit le pilier de ta carte : ne laisse aucun pilier vide.':'Gagne une manche dans les quatre piliers : +40.')+' Tes jokers : bouton 🃏 sous le plateau.</div></div>'
     +'<p style="font-size:12px;color:#8b8397">Compte les cartes : il y en a 32, toujours les mêmes.</p>'
     +'<button class="fermer or" onclick="fermerGuide()">Jouer</button></div></div>';
 }
@@ -3146,6 +3152,8 @@ function statsHTML(){
     +ligne("Série en cours", st.serie||0)
     +ligne("Meilleure série", st.meilleureSerie||0)
     +ligne("Pilier favori", favoris.length?favoris.join(", "):"—")
+    +ligne("Razzias en carrière", st.razzias||0)
+    +ligne("Manches décisives gagnées", (st.decisivesGagnees||0)+" sur "+(st.decisives||0))
     +ligne("50 capturés en carrière", st.cinquante||0)
     +ligne("Record de 50 en une partie", st.recordCinquante||0)
     +'<div class="note">Cartes remportées par pilier</div>'+barres
@@ -3216,7 +3224,7 @@ function rendreDecisive(){
 function rendreFin(){
   if(P.mode==='table4')return rendreFin4();
   var B=bilanPartie(P), s1=B.principal[1], s2=B.principal[2], gagne=B.gagnant===1, nul=B.gagnant===null;
-  if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis,nul?0:(gagne?1:-1));
+  if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis,nul?0:(gagne?1:-1),{razzia:B.razzia&&gagne,decisive:B.niveau==='decisive',decisiveGagnee:B.niveau==='decisive'&&gagne});
     VOIX.dire(B.verdict!=='classique'?phraseVerdict(B):(nul?'Partie nulle, '+s1+' partout.':(gagne?'Tu as gagné la partie, '+s1+' à '+s2+'.':'Elle a gagné la partie, '+s2+' à '+s1+'.')));
     // la première tentative du jour est gardée ; les suivantes sont de l'entraînement
     if(P.donne&&!resultatDuJour()){P._premiere=true;try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:s1,s2:s2,gagne:gagne,verdict:B.verdict}));}catch(e){}} }

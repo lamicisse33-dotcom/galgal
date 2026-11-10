@@ -727,3 +727,18 @@ test('donne du jour en Piliers : la même graine, la même manche décisive pour
   for(const x of [a,b]){const p=x.P;p.total=4;p.jokers={1:[],2:[]};manche(x,p,'Spiritualité');manche(x,p,'Santé',{},2);manche(x,p,'Amour');manche(x,p,'Argent',{},2);}
   assert.equal(a.preparerDecisive(a.P).pilier,b.preparerDecisive(b.P).pilier);
 });
+test('palmarès Piliers : Razzias en carrière, manches décisives gagnées',()=>{
+  const {c,nodes}=jeu();
+  c.STATS.finPartie(10,5,{},1,{razzia:true});c.STATS.finPartie(10,5,{},1,{decisive:true,decisiveGagnee:true});c.STATS.finPartie(5,10,{},-1,{decisive:true});
+  const st=c.STATS.etat();assert.deepEqual([st.razzias,st.decisivesGagnees,st.decisives],[1,1,2]);
+  c.palmaresOuvert=true;c.rendre();const h=nodes.get('app').innerHTML;
+  assert.match(h,/Razzias en carrière<\/span><b>1/);assert.match(h,/Manches décisives gagnées<\/span><b>1 sur 2/);
+  // Une vraie fin : la manche décisive gagnée s'inscrit.
+  const d=jeu();d.c.P=partie22(d.c,{1:[carte('m','Amour',50)],2:[carte('e','Amour',10)]});d.c.P.rnd=()=>0.4;d.c.tour();d.c.commencerDecisive();d.c.jouerDecisive('m');d.c.rendreFin();
+  assert.deepEqual([d.c.STATS.etat().decisives,d.c.STATS.etat().decisivesGagnees],[1,1]);
+});
+test('aide : le verdict Piliers, la manche décisive, Classique',()=>{
+  const {c}=jeu();c.aideOuverte=true;const h=c.aideHTML();
+  assert.match(h,/Le verdict Piliers/);assert.match(h,/Razzia/);assert.match(h,/La manche décisive/);assert.match(h,/Le mode Classique/);assert.match(h,/Bonus Équilibre \(Classique\)/);
+  assert.doesNotMatch(h,/Le verdict Équilibre/);
+});

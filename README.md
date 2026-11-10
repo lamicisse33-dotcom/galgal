@@ -18,7 +18,7 @@ Custom domain**, avec un enregistrement CNAME chez ton hébergeur pointant sur
 
 ## À chaque nouvelle version
 
-**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v22` (version du verdict Équilibre, 10 novembre 2026).
+**Changer `VERSION` dans `sw.js`** — par exemple `atout-vie-v23` (version du verdict Piliers, 10 novembre 2026).
 
 Sans ce changement, les joueurs gardent l'ancien jeu en cache et ne verront
 jamais la mise à jour. C'est l'erreur la plus fréquente et la plus silencieuse.
@@ -26,34 +26,39 @@ jamais la mise à jour. C'est l'erreur la plus fréquente et la plus silencieuse
 Ensuite, la mise à jour est proposée dans les paramètres ⚙️. Le joueur
 choisit quand l'appliquer ; on ne recharge jamais quelqu'un en pleine partie.
 
-## Le verdict : Équilibre (par défaut) ou Classique
+## Le verdict : Piliers (par défaut) ou Classique
 
-**Équilibre.** Une manche gagnée remplit, de tout le pot, le pilier de la
-carte gagnante. Le score d'un joueur est la somme de ses **deux piliers les
-plus faibles** : un pilier délaissé fait perdre, même avec un gros total. À
-égalité, le plus gros total l'emporte ; à égalité encore, le plus de 50
-adverses capturés, puis de 40 ; sinon, partie nulle. Pas de Bonus Équilibre.
+**Piliers.** Une manche gagnée met tout le pot sur le pilier de la carte
+gagnante. À la fin, chaque pilier va à qui y a gagné le plus de points ; à
+égalité, 0-0 compris, il n'est à personne. Le plus de piliers gagne la
+partie ; 4-0, c'est une **Razzia**. Pas de bonus. 16 manches par défaut : le
+paquet de 32 se joue entièrement, et la fin se joue à cartes connues.
 
-**Une fin de partie à cartes connues.** En Équilibre, la partie dure 16
-manches : le paquet de 32 se joue entièrement. Quand la pioche est vide, on a
-vu passer toutes les autres cartes et l'on sait exactement ce qui reste dans
-la main adverse.
+**La manche décisive.** À 2-2 (ou 1-1, ou 0-0) après la dernière manche, une
+manche de plus en mort subite, sur un pilier tiré au sort parmi ceux à
+égalité, sinon parmi les quatre (le même pour tous à la donne du jour).
+Chacun pose une carte de ce pilier s'il en a, sinon n'importe laquelle — elle
+compte quand même. Pas de joker. Une main vide reçoit deux cartes tirées des
+plis mélangés, face connue. La plus forte gagne ; égalité → celui qui
+n'avait pas l'initiative à la dernière manche. À 4 : une carte chacun,
+l'équipe de la plus forte gagne.
 
 **Classique** (⚙️ → Verdict) : l'ancien verdict, inchangé — le plus gros
 total gagne, 10 manches par défaut, bonus de 40 pour une manche gagnée dans
 chacun des quatre piliers. Changer de verdict ne touche pas la partie en
 cours ; chaque verdict garde sa propre durée.
 
-À 4, le score de l'équipe est la somme de ses deux piliers les plus faibles,
-et la prime d'une contestation va au pilier contesté. La donne du jour se
-joue toujours en Équilibre, en 16 manches.
+**Équilibre** (v22, la somme des deux piliers les plus faibles) reste dans le
+code et ses tests, mais n'est plus proposé ; un choix « Équilibre » resté
+dans un téléphone devient Piliers.
 
 Simulation (moteur réel, 2 000 parties par cas, 10 novembre 2026) : la Sage
-bat l'Apprentie 76 % des parties et la Sage à l'ancienne logique 60 % ;
-égalités 0 %. La relancer :
+bat l'Apprentie 65,5 % des parties et la Sage à l'ancienne logique 64 % ;
+la manche décisive se joue dans 26 à 28 % des parties. La relancer :
 
 ```sh
-node tests/simuler-equilibre.cjs
+node tests/simuler-piliers.cjs
+node tests/simuler-equilibre.cjs   # l'ancien verdict Équilibre
 ```
 
 ## Règles et vérification
@@ -65,22 +70,23 @@ quatre piliers ; ce bonus n'est pas multiplié. L'ordinateur peut utiliser les q
 sans consulter la main adverse. La durée choisie (8, 10, 12 ou 16 manches)
 est conservée pour les parties suivantes ; elle ne modifie pas la partie en cours.
 
-Deux adversaires : l'**Apprentie** joue ses grosses cartes et vise ses deux
-piliers les plus faibles (en Classique : ceux qu’elle n’a pas encore gagnés) ;
+Deux adversaires : l'**Apprentie** joue ses grosses cartes, revient sur les
+piliers où elle est derrière de peu et y sacrifie ses petites là où elle est
+trop loin (en Classique : elle vise les piliers qu’elle n’a pas encore gagnés) ;
 la **Sage** compte
 les cartes posées, estime ce qui reste dans la main adverse et sacrifie ses
 faibles quand la manche est perdue (66 % de victoires contre l'Apprentie sur
-4 000 parties simulées en Classique) ; en Équilibre, elle vise ses piliers
-faibles et s'en prend à ceux de l'adversaire. Ni l'une ni l'autre ne lit la main du joueur — un
+4 000 parties simulées en Classique) ; en Piliers, elle prend la tête des
+piliers disputés et sacrifie le pilier perdu d'avance quand elle en tient deux. Ni l'une ni l'autre ne lit la main du joueur — un
 test le garantit.
 
 La **donne du jour** (⚙️) : chaque jour (jour de Dakar), la même main pour
-tout le monde — toujours en duel, contre la Sage, au verdict Équilibre en 16
+tout le monde — toujours en duel, contre la Sage, au verdict Piliers en 16
 manches, quels que soient tes réglages. Ta première tentative est celle qui compte ; les suivantes
 sont de l’entraînement. Le résultat se partage depuis l'écran de fin. Une
 partie interrompue (appel, rechargement) **reprend à la même manche**. La
 citation de la carte gagnante s'affiche à chaque verdict. Le joueur a son
-palmarès dans ⚙️ ; le tableau de bord complet reste derrière le code maître
+palmarès dans ⚙️ (dont les Razzias et les manches décisives gagnées) ; le tableau de bord complet reste derrière le code maître
 (appui long sur le titre).
 
 ## La table à 4
