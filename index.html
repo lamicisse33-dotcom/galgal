@@ -1099,10 +1099,20 @@ function iaChoisit(interdit,moi){
   var candidats=P.mains[moi].filter(function(c){return c.pilier!==interdit;});
   var fantome=P.jokers[moi].some(function(j){return j.id==='j5';});
   if(!candidats.length && !fantome)candidats=P.mains[moi].slice();
-  var eq=verdictDe(P)==='equilibre', t=eq?totauxParPilier(P,moi):null;
-  var valeur=function(c){return c.pts+(eq?(estFaible(t,c.pilier)?14:0):(P.piliersGagnes[moi].includes(c.pilier)?0:14));};
+  var v=verdictDe(P),eq=v==='equilibre',pil=v==='piliers',t=(eq||pil)?totauxParPilier(P,moi):null,ta=pil?totauxParPilier(P,moi===1?2:1):null;
+  // Piliers : +14 là où elle est derrière de peu (moins de 40 points).
+  var ecart=function(x){return (ta[x]||0)-(t[x]||0);};
+  var valeur=function(c){return c.pts+(pil?(ecart(c.pilier)>0&&ecart(c.pilier)<40?14:0):eq?(estFaible(t,c.pilier)?14:0):(P.piliersGagnes[moi].includes(c.pilier)?0:14));};
   var meilleur=null;
   candidats.forEach(function(c){if(!meilleur || valeur(c)>valeur(meilleur))meilleur=c;});
+  // Piliers : sans grosse carte, elle jette sa plus petite sur le pilier où
+  // elle est le plus loin derrière — un sacrifice.
+  if(pil&&!fantome&&meilleur&&meilleur.pts<=20&&candidats.length){
+    var loin=PILIERS.slice().sort(function(a,b){return ecart(b)-ecart(a);})[0];
+    var petite=function(l){var f=null;l.forEach(function(c){if(!f||c.pts<f.pts)f=c;});return f;};
+    meilleur=(ecart(loin)>0&&petite(candidats.filter(function(c){return c.pilier===loin;})))||petite(candidats);
+    return {pil:meilleur.pilier,carte:meilleur};
+  }
   if(fantome){
     PILIERS.filter(function(p){return p!==interdit;}).forEach(function(p){
       var f={id:'fantome',pilier:p,pts:27.5,nom:'Fantôme',fantome:true};
@@ -1152,12 +1162,36 @@ var POIDS_EQ={utileFaible:1,utileFort:0.25,malFaible:1.5,malFort:0.6};
 function utilitePilier(t,pil){return estFaible(t,pil)?POIDS_EQ.utileFaible:POIDS_EQ.utileFort;}
 function malPilier(t,pil){return estFaible(t,pil)?POIDS_EQ.malFaible:POIDS_EQ.malFort;}
 function moyenneDe(v){var s=0;v.forEach(function(x){s+=x;});return v.length?s/v.length:0;}
+/* Verdict Piliers : ce que `pot` points ajoutés au pilier `pil` changent au
+   compte des piliers, pour le camp dont les totaux sont `tMoi` (contre
+   `tAdv`). Prendre la tête d'un pilier disputé ou perdu : 1. Creuser un
+   pilier déjà acquis : 0,2. Revenir sur un pilier perdu de loin, sans le
+   reprendre : 0,3 ; s'en rapprocher seulement : 0,5. Le pilier sacrifié ne
+   vaut presque plus rien, ni à gagner ni à perdre. */
+var POIDS_PIL={tete:1,creuser:0.2,loin:0.3,approche:0.5,loinEcart:60,sacrifie:0.1,malSacrifie:0.2,mal:1};
+function poidsFront(tMoi,tAdv,pil,pot,sacrifie){
+  if(sacrifie&&sacrifie===pil)return POIDS_PIL.sacrifie;
+  var m=tMoi[pil]||0,o=tAdv[pil]||0;
+  if(m>o)return POIDS_PIL.creuser;
+  if(m+pot>o)return POIDS_PIL.tete;
+  return o-m>=POIDS_PIL.loinEcart?POIDS_PIL.loin:POIDS_PIL.approche;
+}
+/* Le sacrifice explicite : qui mène sur deux piliers et peut en sécuriser un
+   troisième lâche le quatrième — le plus perdu des deux qui restent. */
+function pilierSacrifie(tMoi,tAdv){
+  var mene=PILIERS.filter(function(x){return (tMoi[x]||0)>(tAdv[x]||0);});
+  if(mene.length!==2)return null;
+  var autres=PILIERS.filter(function(x){return mene.indexOf(x)<0;});
+  autres.sort(function(a,b){return ((tAdv[b]||0)-(tMoi[b]||0))-((tAdv[a]||0)-(tMoi[a]||0));});
+  return autres[0];
+}
+function menes(tMoi,tAdv){return PILIERS.filter(function(x){return (tMoi[x]||0)>(tAdv[x]||0);}).length;}
 /* `moi` : son siège (2 par défaut). `logique` : « equilibre » ou
    « classique » — par défaut celle du verdict de la partie ; la simulation
    fait jouer l'ancienne logique sous le verdict Équilibre pour comparer. */
 function sageChoisit(interdit,moi,logique){
   moi=moi||2;var adv=moi===1?2:1;
-  var eq=(logique||verdictDe(P))==='equilibre';
+  var lg=logique||verdictDe(P),eq=lg==='equilibre',pil=lg==='piliers';
   var ouvre=(P.initiative===moi);
   var inconnues=inconnuesPour(moi);
   var autorises=PILIERS.filter(function(p){return p!==interdit;});
@@ -1165,12 +1199,19 @@ function sageChoisit(interdit,moi,logique){
   var fantome=P.jokers[moi].some(function(j){return j.id==='j5';});
   if(!candidats.length && !fantome)candidats=P.mains[moi].slice();
   var restantes=P.total-P.manche+1;
-  var tMoi=eq?totauxParPilier(P,moi):null, tAdv=eq?totauxParPilier(P,adv):null;
+  var tMoi=(eq||pil)?totauxParPilier(P,moi):null, tAdv=(eq||pil)?totauxParPilier(P,adv):null;
+  var sac=pil?pilierSacrifie(tMoi,tAdv):null;
   function evaluer(c){
     var cibles=ouvre?PILIERS.filter(function(q){return q!==c.pilier;}):[interdit];
     var e=estimerManche(c.pts,inconnues,cibles,ouvre);
     var pot=c.pts+e.attendu, ev;
-    if(eq){
+    if(pil){
+      // Ce que la manche change au compte : gagner met le pot sur SON pilier ;
+      // perdre le met sur celui de l'adversaire (connu quand elle répond).
+      var malP=function(q){return q===sac?POIDS_PIL.malSacrifie:poidsFront(tAdv,tMoi,q,pot,null);};
+      var mal=ouvre?moyenneDe(cibles.map(malP)):malP(interdit);
+      ev=e.gain*pot*poidsFront(tMoi,tAdv,c.pilier,pot,sac)-(1-e.gain)*pot*mal*POIDS_PIL.mal;
+    }else if(eq){
       // Gagner : le pot va à SON pilier. Perdre : il va à celui de l'adversaire —
       // connu quand elle répond ; quand elle ouvre, l'un des trois autres. Ouvrir
       // sur le pilier faible de l'adversaire l'empêche d'y répondre : c'est l'attaque.
@@ -1194,7 +1235,8 @@ function sageChoisit(interdit,moi,logique){
   }
   // Tout est perdant : elle lâche sa plus faible carte, pour donner le moins possible.
   if(meilleur && !meilleur.fantome && note.ev<0 && candidats.length){
-    var faible=null;candidats.forEach(function(c){if(!faible||c.pts<faible.pts)faible=c;});
+    // (Piliers : à valeur égale, de préférence sur le pilier sacrifié.)
+    var faible=null;candidats.forEach(function(c){if(!faible||c.pts<faible.pts||(c.pts===faible.pts&&c.pilier===sac))faible=c;});
     meilleur=faible;note=evaluer(faible);
   }
   return {pil:meilleur?meilleur.pilier:interdit,carte:meilleur,gain:note?note.gain:0.5};
@@ -1204,6 +1246,16 @@ function jokerSage(carte,gain,moi,logique){
   moi=moi||2;var adv=moi===1?2:1;
   var a=function(id){return P.jokers[moi].some(function(j){return j.id===id;});};
   var derniere=P.manche===P.total;
+  if((logique||verdictDe(P))==='piliers'){
+    var tM=totauxParPilier(P,moi),tA=totauxParPilier(P,adv),m=tM[carte.pilier]||0,o=tA[carte.pilier]||0;
+    var serre=m<=o&&o-m<carte.pts+30, derriere=menes(tM,tA)<menes(tA,tM);
+    // Brakeur : pour retourner un front serré. Multiplicateur : pour prendre la tête.
+    if(a('j1') && ((gain<=0.5 && serre) || (derniere && derriere)))return 'j1';
+    if(a('j2') && ((gain>=0.65 && m<=o) || (derniere && gain>=0.5)))return 'j2';
+    // Bouclier : quand elle mène sur trois piliers.
+    if(a('j4') && !bouclierEngage(P,moi) && menes(tM,tA)>=3)return 'j4';
+    return null;
+  }
   if((logique||verdictDe(P))==='equilibre'){
     var tMoi=totauxParPilier(P,moi),tAdv=totauxParPilier(P,adv);
     var faible=estFaible(tMoi,carte.pilier), vierge=!tMoi[carte.pilier];
@@ -1638,8 +1690,12 @@ function ia4(p,joueur,coups,logique){
   /* Verdict Équilibre : le pot va au pilier de la carte gagnante. Il vaut
      pour l'équipe selon que ce pilier est l'un de ses deux plus faibles ;
      perdu, il fait du mal selon qu'il tombe sur un faible de l'adversaire. */
-  var eq=(logique||verdictDe(p))==='equilibre',equipe=EQUIPE[joueur],autreEquipe=equipe==='nous'?'eux':'nous';
+  var lg=logique||verdictDe(p),pil=lg==='piliers',eq=lg==='equilibre'||pil,equipe=EQUIPE[joueur],autreEquipe=equipe==='nous'?'eux':'nous';
   var tMoi=eq?totauxParPilier(p,equipe):null,tAdv=eq?totauxParPilier(p,autreEquipe):null;
+  var sac=pil?pilierSacrifie(tMoi,tAdv):null;
+  // Ce que vaut un pilier pour l'équipe (U) et le mal qu'y fait l'adversaire (M), selon le verdict.
+  var U=function(x,pot){return pil?poidsFront(tMoi,tAdv,x,pot,sac):utilitePilier(tMoi,x);};
+  var M=function(x,pot){return pil?(x===sac?POIDS_PIL.malSacrifie:poidsFront(tAdv,tMoi,x,pot,null))*POIDS_PIL.mal:malPilier(tAdv,x);};
   var ordre=ordreManche4(p),rang=ordre.indexOf(joueur);
   var dejaPose={};coups.forEach(function(c){dejaPose[c.joueur]=c;});
   var autres=[1,2,3,4].filter(function(j){return j!==joueur;});
@@ -1668,19 +1724,19 @@ function ia4(p,joueur,coups,logique){
   // Où ira le pot si c'est le partenaire, ou un adversaire, qui gagne.
   var libresSans=function(pil){return o.libres.filter(function(x){return x!==pil;});};
   var poseDe=function(j){return coups.filter(function(c){return c.joueur===j;})[0];};
-  function utilitePartenaire(pil){
-    var c=poseDe(partenaireDe(joueur));if(c)return utilitePilier(tMoi,c.pilier);
-    var l=libresSans(pil);return l.length?moyenneDe(l.map(function(x){return utilitePilier(tMoi,x);})):POIDS_EQ.utileFort;
+  function utilitePartenaire(pil,pot){
+    var c=poseDe(partenaireDe(joueur));if(c)return U(c.pilier,pot);
+    var l=libresSans(pil);return l.length?moyenneDe(l.map(function(x){return U(x,pot);})):POIDS_EQ.utileFort;
   }
-  function malAdversaires(pil){
+  function malAdversaires(pil,pot){
     var v=[];[1,2,3,4].filter(function(j){return EQUIPE[j]!==equipe;}).forEach(function(j){
-      var c=poseDe(j);if(c){v.push(malPilier(tAdv,c.pilier));return;}
-      var l=libresSans(pil);v.push(l.length?moyenneDe(l.map(function(x){return malPilier(tAdv,x);})):POIDS_EQ.malFort);
+      var c=poseDe(j);if(c){v.push(M(c.pilier,pot));return;}
+      var l=libresSans(pil);v.push(l.length?moyenneDe(l.map(function(x){return M(x,pot);})):POIDS_EQ.malFort);
     });
     return moyenneDe(v);
   }
   function evEq(g,pot,pil){
-    return (partSplit.moi*utilitePilier(tMoi,pil)+partSplit.part*utilitePartenaire(pil))*pot-(1-g)*pot*malAdversaires(pil);
+    return (partSplit.moi*U(pil,pot)+partSplit.part*utilitePartenaire(pil,pot))*pot-(1-g)*pot*malAdversaires(pil,pot);
   }
   var choix=[];
   o.avecCarte.forEach(function(pil){
@@ -1696,7 +1752,7 @@ function ia4(p,joueur,coups,logique){
       var g=chanceEquipe(c.pts),gc=chanceDeBattre(c.pts,dp,false);
       var mise=c.pts+esperance(dp);
       // La prime d'une contestation va au pilier contesté.
-      var prime=eq?gc*mise*utilitePilier(tMoi,pil)-(1-gc)*mise*malPilier(tAdv,pil):(2*gc-1)*mise;
+      var prime=eq?gc*mise*U(pil,mise)-(1-gc)*mise*M(pil,mise):(2*gc-1)*mise;
       choix.push({pilier:pil,carte:c,gain:g,ev:(eq?evEq(g,c.pts+potAutres,pil):(2*g-1)*(c.pts+potAutres))+prime,conteste:true});
     });
   });
@@ -1721,7 +1777,12 @@ function ia4(p,joueur,coups,logique){
   // Le joker, un seul par joueur et par partie.
   var joker=null,a=function(id){return p.jokers[joueur].some(function(j){return j.id===id;});};
   var derniere=p.manche===p.total,retard=p.scores[EQUIPE[joueur]]<p.scores[EQUIPE[joueur]==="nous"?"eux":"nous"];
-  if(eq&&!meilleur.carte.fantome){
+  if(pil&&!meilleur.carte.fantome){
+    var mm=tMoi[meilleur.pilier]||0,oo=tAdv[meilleur.pilier]||0,derriere=menes(tMoi,tAdv)<menes(tAdv,tMoi);
+    if(a("j1")&&(meilleur.gain<=0.5&&mm<=oo&&oo-mm<meilleur.carte.pts+potAutres||derniere&&derriere))joker="j1";
+    else if(a("j2")&&(meilleur.gain>=0.65&&mm<=oo||derniere&&meilleur.gain>=0.5))joker="j2";
+    else if(a("j4")&&!bouclierEngage(p,joueur)&&!bouclierEngage(p,partenaireDe(joueur))&&menes(tMoi,tAdv)>=3)joker="j4";
+  }else if(eq&&!meilleur.carte.fantome){
     var faible=estFaible(tMoi,meilleur.pilier),vierge=!tMoi[meilleur.pilier];
     retard=scoreEquilibre(tMoi)<scoreEquilibre(tAdv);
     // Brakeur : de préférence pour conquérir un pilier faible encore à 0 ; Multiplicateur : sur un pilier faible.

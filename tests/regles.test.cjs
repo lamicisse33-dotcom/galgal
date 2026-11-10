@@ -247,6 +247,8 @@ test('table à 4 à l’écran : une partie complète au doigt, reprise après i
   for(let tour=0;tour<60;tour++){
     avancer();
     if(nodes.get('app').innerHTML.includes('class="fin"'))break;
+    // Verdict Piliers (v23) : sans vainqueur après 8 manches, la manche décisive.
+    if(nodes.get('app').innerHTML.includes('MANCHE DÉCISIVE')){c.commencerDecisive();c.jouerDecisive(c.jouablesDecisive(c.P,1)[0].id);c.rendreFin();break;}
     if(c.etape==='pilier'){
       assert.ok(nodes.get('app').innerHTML.includes('>NOUS'),'l’en-tête nomme notre équipe');
       const o=c.options4(c.P,1,c.coups4);const pil=o.avecCarte[0]||o.contestables[0]||o.mortes[0];
@@ -317,7 +319,7 @@ test('la voix : le Brakeur qui décide se dit une seule fois, avec les jokers de
 });
 test('la voix : le Fantôme s’annonce au moment du choix, avant son verdict',()=>{
   const duel=jeu().c,dits=[];duel.VOIX={dire:t=>dits.push(t)};
-  const p=duel.P;p.initiative=1;duel.pilJ=null;duel.pilIA=null;duel.planIA=null;duel.etape='pilier';p.jokers[1]=[{id:'j5'}];
+  const p=duel.P;p.initiative=1;duel.pilJ=null;duel.pilIA=null;duel.planIA=null;duel.etape='pilier';p.jokers[1]=[{id:'j5'}];p.jokers[2]=p.jokers[2].filter(j=>j.id!=='j5');   // un seul Fantôme dans le jeu
   duel.jouerFantomeSur('Santé');
   assert.equal(dits[0],'Fantôme sur Santé');assert.equal(duel.etape,'verdict');
   assert.match(dits[1]||'',/^Ton Fantôme, \d+(\.\d+)? de Santé, contre son \d+ (de |d’)\S+\./);
