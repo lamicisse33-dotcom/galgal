@@ -445,6 +445,16 @@ body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;paddin
 #app .fin{min-height:100%;padding:16px}
 @media(max-height:540px){#app{--entete-h:36px;--score-h:40px;--message-h:52px}.entete .sonbtn{height:34px;min-width:40px}#app .rond{width:26px;height:26px}.med .nb{display:none}#app .msg-content{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.k{transition:none}}
+/* La manche décisive */
+.fin.decisive .pilier-decisif{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 4px;font-family:Cinzel,serif;font-size:18px;color:#F0D060;letter-spacing:1px}
+.fin.decisive .pilier-decisif i{display:block;width:54px;height:54px;border-radius:50%;background-size:100%;box-shadow:0 0 18px #F0D06066}
+.dec-main,.dec-poses{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:10px 0}
+.dec-k{position:relative;width:78px;aspect-ratio:110/156;container-type:inline-size}
+.dec-k.go{cursor:pointer;filter:drop-shadow(0 0 6px #F0D06088)}
+.dec-k.off{opacity:.35}
+.dec-pose{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#b4c1d2}
+.dec-pose.gagne span{color:#F0D060;font-weight:700}
+.dec-pose.gagne .dec-k{filter:drop-shadow(0 0 10px #F0D060)}
 /* Verdict Équilibre : l'en-tête et l'écran de fin */
 #app .sc.eq{padding:4px 10px;align-items:stretch;gap:6px}
 #app .sc.eq .camp{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;min-width:0;gap:1px}
@@ -818,10 +828,86 @@ function consommerBouclier(p,c){
 }
 function bouclierEngage(p,c){return !!p.bouclier[c];}
 
-function finie(p) {
+/* Les manches ordinaires sont jouées. En duel, elles s'arrêtent aussi
+   quand plus personne n'a de carte. */
+function manchesJouees(p) {
   if (p.manche > p.total) return true;
-  // En duel, une partie s'arrête aussi quand plus personne n'a de carte.
   return p.mode !== "table4" && !p.mains[1].length && !p.mains[2].length;
+}
+/* La partie est finie quand les manches sont jouées — et, au verdict Piliers
+   sans vainqueur, quand la manche décisive l'est aussi. */
+function finie(p) { return manchesJouees(p) && !besoinDecisive(p); }
+
+/* ═══ LA MANCHE DÉCISIVE (verdict Piliers) ══════════════════════════════
+   Sans vainqueur après la dernière manche (2-2, 1-1, 0-0), une manche en
+   mort subite. Son pilier est tiré au sort (p.rnd : le même pour tous à la
+   donne du jour) parmi les piliers à égalité s'il y en a, sinon parmi les
+   quatre. Chacun joue une carte de ce pilier s'il en a, sinon n'importe
+   laquelle — une carte morte, mais sa valeur compte. Une main vide reçoit
+   d'abord ce qui reste de la pioche, puis deux cartes tirées des plis
+   mélangés, face connue. Pas de joker. La plus forte gagne la partie ;
+   égalité → celui qui n'avait pas l'initiative à la dernière manche, qui
+   ouvre la manche décisive. À 4 : une carte chacun, l'équipe de la plus
+   forte gagne. */
+function besoinDecisive(p){
+  if(verdictDe(p)!=="piliers"||!manchesJouees(p))return false;
+  if(p.decisive&&p.decisive.joue)return false;
+  var c=campsDe(p),t={};t[c[0]]=totauxParPilier(p,c[0]);t[c[1]]=totauxParPilier(p,c[1]);
+  return verdictPiliers(t).gagnant===null;
+}
+function joueursDe(p){ return p.mode==="table4"?[1,2,3,4]:[1,2]; }
+/* L'ordre de pose : l'initiative est déjà passée à l'autre (duel), l'ouvreur
+   a déjà tourné (à 4) — c'est lui qui n'avait pas l'initiative. */
+function ordreDecisive(p){ return p.mode==="table4"?ordreManche4(p):[p.initiative,p.initiative===1?2:1]; }
+function preparerDecisive(p){
+  if(p.decisive)return p.decisive;
+  var c=campsDe(p),t={};t[c[0]]=totauxParPilier(p,c[0]);t[c[1]]=totauxParPilier(p,c[1]);
+  var v=verdictPiliers(t),choix=v.piliers.disputes.length?v.piliers.disputes:PILIERS.slice();
+  var pilier=choix[Math.floor(p.rnd()*choix.length)];
+  var donnees={},reserve=null;
+  joueursDe(p).forEach(function(j){
+    if(p.mains[j].length)return;
+    donnees[j]=[];
+    while(p.mains[j].length<2&&p.pioche.length){var x=p.pioche.shift();p.mains[j].push(x);donnees[j].push(x.id);}
+    if(p.mains[j].length>=2)return;
+    if(!reserve){
+      reserve=[];PILIERS.forEach(function(q){p.plis[q].forEach(function(k){if(!k.fantome)reserve.push(k);});});
+      reserve=melanger(reserve,p.rnd);
+    }
+    while(p.mains[j].length<2&&reserve.length){
+      var k=reserve.shift();
+      PILIERS.forEach(function(q){var i=p.plis[q].indexOf(k);if(i>=0)p.plis[q].splice(i,1);});
+      var nette={id:k.id,pilier:k.pilier,pts:k.pts,nom:k.nom,cit:k.cit,connue:true};
+      p.mains[j].push(nette);donnees[j].push(k.id);
+    }
+  });
+  p.decisive={pilier:pilier,ordre:ordreDecisive(p),donnees:donnees,joue:false,etape:"annonce",tirage:choix.slice()};
+  return p.decisive;
+}
+/* Les cartes qu'un joueur peut poser : celles du pilier, sinon toutes. */
+function jouablesDecisive(p,j){
+  var d=p.decisive,du=p.mains[j].filter(function(k){return k.pilier===d.pilier;});
+  return du.length?du:p.mains[j].slice();
+}
+/* L'IA : la plus forte carte qu'elle peut poser. Elle ne lit que sa main. */
+function choixDecisive(p,j){
+  var best=null;jouablesDecisive(p,j).forEach(function(k){if(!best||k.pts>best.pts)best=k;});return best;
+}
+/* coups : {joueur: id de carte}. Aucun joker n'est accepté. */
+function resoudreDecisive(p,coups){
+  var d=p.decisive;if(!d||d.joue)throw new Error("pas de manche décisive à jouer");
+  var poses=d.ordre.map(function(j){
+    var id=coups[j],ok=jouablesDecisive(p,j).filter(function(k){return k.id===id;})[0];
+    if(!ok)throw new Error("le joueur "+j+" ne peut pas poser "+id+" dans la manche décisive");
+    var carte=retirerDeLaMain(p,j,id);
+    return {joueur:j,carte:carte,valeur:carte.pts,morte:carte.pilier!==d.pilier};
+  });
+  var g=poses[0];poses.forEach(function(x){if(x.valeur>g.valeur)g=x;});   // égalité : le premier posé
+  var camp=p.mode==="table4"?EQUIPE[g.joueur]:g.joueur;
+  poses.forEach(function(x){p.plis[d.pilier].push(Object.assign({},x.carte,{par:x.joueur,gagnePar:camp,morte:x.joueur!==g.joueur,manche:p.total+1,decisive:true}));});
+  d.poses=poses;d.gagnantJoueur=g.joueur;d.gagnant=camp;d.joue=true;d.etape="joue";
+  d.egalite=poses.filter(function(x){return x.valeur===g.valeur;}).length>1;
+  return d;
 }
 
 /* ═══ LE VERDICT « ÉQUILIBRE » — Lamine, 10 novembre 2026 ═══════════════
@@ -1264,6 +1350,7 @@ function reprendrePartie(){
 function oublierPartie(){try{localStorage.removeItem(CLE_PARTIE);}catch(e){}}
 
 function tour(){
+  if(besoinDecisive(P))return ouvrirDecisive();
   if(finie(P))return rendreFin();
   if(P.mode==='table4')return tour4();
   sauverPartie();
@@ -2916,6 +3003,58 @@ function statsHTML(){
     +'<button class="fermer" onclick="viderStats()">Remettre à zéro</button>'
     +'<button class="fermer" onclick="fermerStats()">Fermer</button>'
     +'</div></div>';
+}
+
+/* ═══ LA MANCHE DÉCISIVE À L'ÉCRAN ═════════════════════════════════════
+   Un écran à elle : « Manche décisive — pilier Amour » d'abord, puis ta
+   carte, puis le résultat, puis la fin de partie. */
+function ouvrirDecisive(){
+  var neuve=!P.decisive;
+  preparerDecisive(P);sauverPartie();clearTimeout(minuterie4);
+  if(neuve)annoncerDecisive();
+  rendreDecisive();
+}
+function annoncerDecisive(){}
+function commencerDecisive(){ if(P.decisive&&P.decisive.etape==="annonce"){P.decisive.etape="jouer";sauverPartie();rendreDecisive();} }
+function nomJoueur(j){ return P.mode==="table4"?(j===1?"Toi":SIEGE[j]):(j===1?"Toi":"Elle"); }
+function jouerDecisive(id){
+  var d=P.decisive;if(!d||d.etape!=="jouer")return;
+  if(!jouablesDecisive(P,1).some(function(k){return k.id===id;})){AUDIO.refus();return;}
+  var coups={};joueursDe(P).forEach(function(j){coups[j]=j===1?id:choixDecisive(P,j).id;});
+  resoudreDecisive(P,coups);AUDIO.retourne();
+  annoncerResultatDecisive();rendreDecisive();
+}
+function annoncerResultatDecisive(){}
+function egaliteDecisive(j){
+  if(j===1)return 'la tienne l’emporte : tu ouvres, tu n’avais pas l’initiative à la dernière manche.';
+  if(P.mode==='table4')return 'celle '+deDu(SIEGE[j])+' l’emporte : '+SIEGE[j]+' ouvre, sans avoir eu l’initiative à la dernière manche.';
+  return 'la sienne l’emporte : elle ouvre, elle n’avait pas l’initiative à la dernière manche.';
+}
+function rendreDecisive(){
+  var d=P.decisive,B=bilanPartie(P),c=B.camps,k=CLE[d.pilier];
+  var compte=B.piliers.piliers[c[0]].length+' – '+B.piliers.piliers[c[1]].length;
+  var h='<div class="fin decisive"><div class="titre">MANCHE DÉCISIVE</div>'
+    +'<div class="pilier-decisif"><i class="e-'+k+'"></i><span>pilier <b>'+d.pilier+'</b></span></div>'
+    +'<p class="verdict-fin">'+compte+' : personne ne l’emporte. Une seule manche, en mort subite, sur '+(d.pilier==='Santé'||d.pilier==='Spiritualité'?'la ':'l’')+d.pilier
+    +' — tiré au sort parmi '+(d.tirage.length===4?'les quatre piliers':'les piliers à égalité')+'. Une carte de ce pilier si tu en as, sinon n’importe laquelle : elle compte quand même. Pas de joker. La plus forte gagne la partie ; à égalité, '+egaliteDecisive(d.ordre[0])+'</p>';
+  var dons=Object.keys(d.donnees).filter(function(j){return d.donnees[j].length;});
+  if(dons.length)h+='<p class="note">Mains vides : '+dons.map(function(j){return (+j===1?'tu reçois ':nomJoueur(+j)+' reçoit ')+d.donnees[j].length+' carte'+(d.donnees[j].length>1?'s':'');}).join(', ')+', tirées des plis mélangés, face connue.</p>';
+  if(d.etape==="annonce"){
+    h+='<div class="actions"><button class="act" onclick="commencerDecisive()">Jouer la manche décisive</button></div>';
+  }else if(d.etape==="jouer"){
+    var ok=jouablesDecisive(P,1).map(function(x){return x.id;});
+    h+='<p>Choisis ta carte'+(P.mains[1].some(function(x){return x.pilier===d.pilier;})?' de '+d.pilier:' — tu n’as pas '+deDu(d.pilier)+', elle comptera quand même')+'.</p><div class="dec-main">'
+      +P.mains[1].map(function(x){var on=ok.indexOf(x.id)>=0;return '<div class="dec-k'+(on?' go':' off')+'"'+(on?' onclick="jouerDecisive(\''+x.id+'\')"':'')+'>'+carteHTML(x)+'</div>';}).join('')+'</div>';
+    var connues=joueursDe(P).filter(function(j){return j!==1&&P.mains[j].some(function(x){return x.connue;});});
+    if(connues.length)h+='<p class="note">Face connue : '+connues.map(function(j){return nomJoueur(j)+' — '+P.mains[j].map(function(x){return x.pts+' '+deDu(x.pilier);}).join(', ');}).join(' · ')+'</p>';
+  }else{
+    h+='<div class="dec-poses">'+d.poses.map(function(x){return '<div class="dec-pose'+(x.joueur===d.gagnantJoueur?' gagne':'')+'"><div class="dec-k">'+carteHTML(x.carte)+'</div><span>'+nomJoueur(x.joueur)+(x.morte?' · hors pilier':'')+'</span></div>';}).join('')+'</div>'
+      +'<p class="verdict-fin"><b>'+(B.gagnant===c[0]?(c[0]==='nous'?'Votre équipe remporte':'Tu remportes'):(c[0]==='nous'?'Leur équipe remporte':'Elle remporte'))+' la manche décisive'+(d.egalite?' — égalité, le premier posé l’emporte':'')+'.</b></p>'
+      +'<div class="actions"><button class="act" onclick="rendreFin()">Voir la fin de partie</button></div>';
+  }
+  document.getElementById("app").innerHTML=h+'</div>';
+  // Rien de la dernière manche ne survole cet écran.
+  var vols=document.querySelectorAll("#vol");for(var q=0;q<vols.length;q++)vols[q].parentNode.removeChild(vols[q]);
 }
 
 function rendreFin(){
