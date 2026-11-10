@@ -896,10 +896,14 @@ function trophees(p,camp){
   });});
   return r.sort(function(a,b){return a.manche-b.manche||b.pts-a.pts;});
 }
-/* Les niveaux de départage du verdict Équilibre, dans l'ordre. */
+/* Les niveaux de départage du verdict Équilibre, dans l'ordre : score
+   d'Équilibre, total, nombre de 50 adverses capturés, puis de 40 ; sinon
+   partie nulle. */
 function departage(p,r){
   var a=r.camps[0],b=r.camps[1];
-  return [["equilibre",r.equilibre[a],r.equilibre[b]],["total",r.total[a],r.total[b]]];
+  var n=function(c,v){return r.trophees[c].filter(function(t){return t.pts===v;}).length;};
+  return [["equilibre",r.equilibre[a],r.equilibre[b]],["total",r.total[a],r.total[b]],
+          ["cinquante",n(a,50),n(b,50)],["quarante",n(a,40),n(b,40)]];
 }
 
 
@@ -2511,6 +2515,10 @@ function phraseVerdict(B){
   if(B.verdict!=='equilibre')return issue;
   var debut=(t4?'Nos deux piliers faibles : ':'Tes deux piliers faibles : ')+deuxFaibles(B,a)+'. '+(t4?'Les leurs : ':'Les siens : ')+deuxFaibles(B,b)+'.';
   if(B.niveau==='total')return debut+' Égalité sur l’Équilibre, le total décide : '+B.total[a]+' contre '+B.total[b]+'. '+issue;
+  var qui=B.gagnant===a?(t4?'nous avons':'tu as'):(t4?'ils ont':'elle a'),fin=issue.charAt(0).toLowerCase()+issue.slice(1);
+  if(B.niveau==='cinquante')return debut+' Égalité sur l’Équilibre et le total : '+qui+' pris plus de 50, '+fin;
+  if(B.niveau==='quarante')return debut+' Égalité sur l’Équilibre, le total et les 50 : '+qui+' pris plus de 40, '+fin;
+  if(B.niveau==='nul')return debut+' Égalité sur l’Équilibre, le total, les 50 et les 40 : partie nulle.';
   return debut+' '+issue;
 }
 

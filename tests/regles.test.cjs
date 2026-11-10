@@ -551,3 +551,36 @@ test('palmarès : 50 capturés en carrière et record d’une partie',()=>{
   c.palmaresOuvert=true;c.rendre();assert.match(nodes.get('app').innerHTML,/50 capturés en carrière<\/span><b>3/);assert.match(nodes.get('app').innerHTML,/Record de 50 en une partie<\/span><b>2/);
   assert.equal(JSON.parse(saved.galgal_stats).cinquante,3,'gardé dans le téléphone');
 });
+/* ── Départage (point 9) : Équilibre, total, 50 capturés, 40 capturés, nulle ── */
+function partieFaite(c,{h1=[],h2=[],t1=[],t2=[],mode}={}){
+  const plis={'Spiritualité':[],'Amour':[],'Santé':[],'Argent':[]};
+  const [A,Bc]=mode==='table4'?['nous','eux']:[1,2],adv={1:2,2:1,nous:2,eux:1};
+  const historique=[...h1.map(([pil,b])=>({gagnant:1,equipe:A,pilierGagnant:pil,butin:b})),...h2.map(([pil,b])=>({gagnant:2,equipe:Bc,pilierGagnant:pil,butin:b}))];
+  t1.forEach((v,i)=>plis['Amour'].push({pts:v,pilier:'Amour',par:adv[A],gagnePar:A,manche:i+1}));
+  t2.forEach((v,i)=>plis['Santé'].push({pts:v,pilier:'Santé',par:mode==='table4'?1:1,gagnePar:Bc,manche:i+1}));
+  const tot=h=>h.reduce((s,x)=>s+x[1],0);
+  return mode==='table4'?{mode,verdict:'equilibre',historique,plis,scores:{nous:tot(h1),eux:tot(h2)}}:{verdict:'equilibre',historique,plis,s1:tot(h1),s2:tot(h2)};
+}
+test('départage, niveau par niveau : Équilibre, total, 50, 40, puis partie nulle',()=>{
+  const {c}=jeu();const v=o=>{const B=c.bilanPartie(partieFaite(c,o));return [B.niveau,B.gagnant];};
+  const q=b=>[['Spiritualité',b],['Amour',b],['Santé',b],['Argent',b]];
+  assert.deepEqual(v({h1:q(50),h2:q(40)}),['equilibre',1]);
+  assert.deepEqual(v({h1:[...q(50),['Santé',30]],h2:[...q(50),['Amour',10]]}),['total',1]);
+  assert.deepEqual(v({h1:q(50),h2:q(50),t1:[50],t2:[50,50]}),['cinquante',2]);
+  assert.deepEqual(v({h1:q(50),h2:q(50),t1:[50,40,40],t2:[50,40]}),['quarante',1]);
+  assert.deepEqual(v({h1:q(50),h2:q(50),t1:[50,40],t2:[40,50]}),['nul',null]);
+  assert.deepEqual(v({mode:'table4',h1:q(50),h2:q(50),t1:[50,50],t2:[50]}),['cinquante','nous'],'à 4, par équipe');
+  // Classique : seul le total compte, les trophées ne départagent pas.
+  const cl=c.bilanPartie({...partieFaite(c,{h1:q(50),h2:q(50),t1:[50]}),verdict:'classique'});
+  assert.deepEqual([cl.niveau,cl.gagnant],['nul',null]);
+});
+test('départage : la voix dit le niveau utilisé',()=>{
+  const {c}=jeu();const dire=o=>c.phraseVerdict(c.bilanPartie(partieFaite(c,o)));
+  const q=b=>[['Spiritualité',b],['Amour',b],['Santé',b],['Argent',b]];
+  assert.match(dire({h1:q(50),h2:q(50),t1:[50,50],t2:[50]}),/ Égalité sur l’Équilibre et le total : tu as pris plus de 50, la partie est à toi\.$/);
+  assert.match(dire({h1:q(50),h2:q(50),t2:[50]}),/ Égalité sur l’Équilibre et le total : elle a pris plus de 50, la partie est à elle\.$/);
+  assert.match(dire({h1:q(50),h2:q(50),t1:[40],t2:[]}),/ Égalité sur l’Équilibre, le total et les 50 : tu as pris plus de 40, la partie est à toi\.$/);
+  assert.match(dire({h1:q(50),h2:q(50)}),/ Égalité sur l’Équilibre, le total, les 50 et les 40 : partie nulle\.$/);
+  assert.match(dire({mode:'table4',h1:q(50),h2:q(50),t2:[40]}),/^Nos deux piliers faibles : .* Égalité sur l’Équilibre, le total et les 50 : ils ont pris plus de 40, la partie est à eux\.$/);
+  assert.match(dire({h1:[...q(50),['Santé',30]],h2:q(50)}),/Égalité sur l’Équilibre, le total décide : 230 contre 200\. La partie est à toi\.$/);
+});
