@@ -379,3 +379,125 @@ test('Fantôme : son joueur ne pioche pas, la pioche ne perd qu’une carte',()=
   c.resoudreManche(p,{pilier1:pil,carte1:'fantome',pilier2:pil2,carte2:c2.id});
   assert.equal(p.mains[1].length,avant1);assert.equal(p.mains[2].length,avant2);assert.equal(p.pioche.length,pioche-1);
 });
+
+/* ── Le verdict Équilibre (Lamine, 10 novembre 2026) ── */
+const sim=require('./simuler-equilibre.cjs');
+test('scoreEquilibre : la somme des deux piliers les plus faibles',()=>{
+  const {c}=jeu();
+  assert.equal(c.scoreEquilibre({'Spiritualité':100,'Amour':50,'Santé':30,'Argent':200}),80);
+  assert.equal(c.scoreEquilibre([90,10,40,40]),50);
+  assert.equal(c.scoreEquilibre({'Spiritualité':300,'Amour':0,'Santé':120,'Argent':200}),120,'un pilier à 0 compte pour 0');
+  assert.equal(c.scoreEquilibre({'Amour':500,'Santé':500}),0,'un pilier absent vaut 0');
+  assert.equal(c.scoreEquilibre({'Spiritualité':60,'Amour':60,'Santé':60,'Argent':60}),120);
+  assert.deepEqual([...c.piliersFaibles({'Spiritualité':60,'Amour':10,'Santé':60,'Argent':10})],['Amour','Argent']);
+});
+test('Équilibre : points par pilier, pas de bonus, vainqueur au score d’Équilibre puis au total',()=>{
+  const {c}=jeu(),p=c.nouvellePartie({verdict:'equilibre'});p.jokers={1:[],2:[]};
+  assert.equal(p.verdict,'equilibre');
+  // Toi : une manche (45) dans chacun des quatre piliers — en Classique, ce serait +40.
+  for(const pil of piliers)assert.equal(manche(c,p,pil).bonus,0);
+  assert.equal(p.s1,180);assert.equal(p.bonusEquilibre[1],false);
+  // Elle : 3 × 45 sur Santé, rien ailleurs → total 135, Équilibre 0.
+  for(let i=0;i<3;i++)manche(c,p,'Santé',{},2);
+  let B=c.bilanPartie(p);
+  assert.deepEqual([B.equilibre[1],B.equilibre[2],B.total[1],B.total[2]],[90,0,180,135]);
+  assert.equal(B.gagnant,1);assert.equal(B.niveau,'equilibre');
+  // Le Multiplicateur compte dans son pilier.
+  p.jokers[2]=[{id:'j2'}];manche(c,p,'Amour',{joker2:'j2'},2);
+  assert.equal(c.totauxParPilier(p,2)['Amour'],90);
+});
+test('Équilibre : égalité sur l’Équilibre → le total ; égalité encore → partie nulle',()=>{
+  const {c}=jeu(),p=c.nouvellePartie({verdict:'equilibre'});p.jokers={1:[],2:[]};
+  for(const pil of piliers){manche(c,p,pil);manche(c,p,pil,{},2);}            // 45 partout, chacun
+  manche(c,p,'Santé');                                                         // Toi : Santé 90, total plus haut
+  let B=c.bilanPartie(p);assert.equal(B.equilibre[1],B.equilibre[2]);assert.equal(B.niveau,'total');assert.equal(B.gagnant,1);
+  manche(c,p,'Santé',{},2);B=c.bilanPartie(p);
+  assert.equal(B.gagnant,null);assert.equal(B.niveau,'nul');
+});
+test('Classique inchangé : sans réglage, la partie est Classique, avec son bonus et son total',()=>{
+  const {c}=jeu(),p=c.nouvellePartie();p.jokers={1:[],2:[]};
+  assert.equal(p.verdict,'classique');assert.equal(p.total,10);
+  let r;for(const pil of piliers)r=manche(c,p,pil);
+  assert.equal(r.bonus,40);assert.equal(p.s1,4*45+40);
+  manche(c,p,'Santé',{},2);const B=c.bilanPartie(p);assert.equal(B.niveau,'total');assert.equal(B.principal[1],220);
+});
+test('Équilibre : 16 manches par défaut, le paquet entier se joue',()=>{
+  const {c}=jeu();assert.equal(c.verdictJeu,'equilibre');assert.equal(c.P.verdict,'equilibre');assert.equal(c.P.total,16);
+  const s=sim.charger();
+  for(let g=0;g<60;g++){
+    sim.partie(s,'sage','apprentie',777+g,g%2===0);const P=s.P;
+    assert.equal(P.historique.length,16);assert.equal(P.pioche.length,0);
+    const enMain=[...P.mains[1],...P.mains[2]],posees=Object.values(P.plis).flat().filter(x=>!x.fantome);
+    assert.equal(posees.length+enMain.length,32);
+    // Seul le Fantôme, joué à la place d'une carte, peut laisser une carte en main.
+    assert.equal(enMain.length,Object.values(P.plis).flat().filter(x=>x.fantome).length);
+  }
+});
+test('réglage du verdict : mémorisé, sans toucher la partie en cours ; une durée par verdict',()=>{
+  const {c,saved}=jeu();assert.equal(c.P.verdict,'equilibre');
+  c.reglerVerdict('classique');assert.equal(saved.atoutvie_verdict,'classique');assert.equal(c.P.verdict,'equilibre');assert.equal(c.manchesSuivantes,10);
+  c.ouvrirReglages();assert.match(c.reglagesHTML(),/reste en Équilibre/);
+  c.neuf();assert.equal(c.P.verdict,'classique');assert.equal(c.P.total,10);
+  c.reglerVerdict('equilibre');c.reglerManches(10);assert.equal(saved.atoutvie_manches_equilibre,'10');
+  delete saved.atoutvie_partie;   // pas de reprise : une partie neuve
+  const r=jeu(saved);assert.equal(r.c.P.verdict,'equilibre');assert.equal(r.c.P.total,10);
+});
+test('table à 4 en Équilibre : par équipe, la prime de contestation va au pilier contesté, pas de bonus',()=>{
+  const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(9),verdict:'equilibre'});p.ouvreur=1;p.jokers={1:[],2:[],3:[],4:[]};
+  const carte=(id,pil,pts)=>({id,pilier:pil,pts,nom:'T',cit:''});
+  // Est conteste la Santé de Toi avec un 50 : la manche (Santé, 105) et la prime (Santé, 90) vont à EUX.
+  p.mains={1:[carte('a','Santé',40)],2:[carte('b','Santé',50),carte('b2','Amour',5)],3:[carte('c','Argent',10)],4:[carte('d','Spiritualité',5)]};
+  c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Santé',carte:'b'},{joueur:3,pilier:'Argent',carte:'c'},{joueur:4,pilier:'Spiritualité',carte:'d'}]);
+  assert.equal(c.totauxParPilier(p,'eux')['Santé'],195);assert.equal(c.totauxParPilier(p,'nous')['Santé'],0);
+  p.piliersGagnes.nous=['Santé','Amour','Argent'];
+  p.mains={1:[carte('m','Spiritualité',50)],2:[carte('n','Amour',5)],3:[carte('o','Argent',5)],4:[carte('q','Santé',5)]};
+  const h=c.resoudreManche4(p,[{joueur:2,pilier:'Amour',carte:'n'},{joueur:3,pilier:'Argent',carte:'o'},{joueur:4,pilier:'Santé',carte:'q'},{joueur:1,pilier:'Spiritualité',carte:'m'}]);
+  assert.equal(h.bonus,0);
+  const B=c.bilanPartie(p);assert.deepEqual([...B.camps],['nous','eux']);assert.equal(B.totaux.nous['Spiritualité'],65);assert.equal(B.equilibre.nous,0);
+  assert.equal(B.total.eux,195);assert.equal(B.gagnant,'eux');assert.equal(B.niveau,'total');
+});
+test('table à 4 en Équilibre : l’IA ne lit que sa main, 100 parties cohérentes',()=>{
+  const {c}=jeu();const rnd=seed4(11);
+  for(let i=0;i<100;i++){const p=c.nouvelleTable4({rnd,verdict:'equilibre'});
+    while(!c.finie(p)){const coups=[];
+      for(const j of c.ordreManche4(p)){const autres=[1,2,3,4].filter(x=>x!==j),mains=p.mains,jokers=p.jokers;
+        p.mains=new Proxy(mains,{get(t,k){if(autres.includes(+k))throw Error('main '+k+' consultée par '+j);return t[k];}});
+        p.jokers=new Proxy(jokers,{get(t,k){if(autres.includes(+k))throw Error('jokers '+k+' consultés par '+j);return t[k];}});
+        const d=c.ia4(p,j,coups);p.mains=mains;p.jokers=jokers;coups.push({joueur:j,pilier:d.pilier,carte:d.carte.id,joker:d.joker});}
+      c.resoudreManche4(p,coups);}
+    const B=c.bilanPartie(p);
+    for(const e of ['nous','eux'])assert.equal(Object.values(B.totaux[e]).reduce((a,b)=>a+b,0),p.scores[e]);
+    assert.ok(p.historique.every(h=>h.bonus===0));
+  }
+});
+test('donne du jour en Équilibre : la même graine, la même partie pour tout le monde',()=>{
+  const a=jeu({atoutvie_verdict:'classique',atoutvie_manches:'8',atoutvie_mode:'table4'}).c,b=jeu({atoutvie_manches_equilibre:'10'}).c;
+  a.donneDuJour();b.donneDuJour();
+  for(const x of [a,b]){assert.equal(x.P.verdict,'equilibre');assert.equal(x.P.total,16);assert.equal(x.P.mode,undefined);}
+  assert.equal(a.P.mains[1].map(x=>x.id).join(),b.P.mains[1].map(x=>x.id).join());
+  assert.equal(a.P.pioche.map(x=>x.id).join(),b.P.pioche.map(x=>x.id).join());
+  assert.equal(JSON.stringify(a.P.jokers),JSON.stringify(b.P.jokers));
+});
+test('IA en Équilibre : l’Apprentie vise ses deux piliers les plus faibles',()=>{
+  const {c}=jeu();const p=c.nouvellePartie({verdict:'equilibre'});c.P=p;p.jokers={1:[],2:[]};
+  for(const pil of ['Santé','Argent'])manche(c,p,pil,{},2);   // elle a Santé et Argent ; Spiritualité et Amour à 0
+  p.mains[2]=[carte('s','Santé',30),carte('a','Amour',20)];p.initiative=2;
+  assert.equal(c.iaChoisit(null).carte.id,'a','20 d’Amour (faible, +14) avant 30 de Santé');
+  p.verdict='classique';p.piliersGagnes[2]=[];
+  assert.equal(c.iaChoisit(null).carte.id,'s','en Classique, rien ne change : la plus forte');
+});
+test('la voix en Équilibre : piliers conquis, deux faibles au verdict, égalité dite',()=>{
+  const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};const p=c.P;p.jokers={1:[],2:[]};
+  c.annoncerVerdict(manche(c,p,'Amour'));assert.match(dits.at(-1),/La manche est à toi\. Amour conquis\.$/);
+  c.annoncerVerdict(manche(c,p,'Amour'));assert.doesNotMatch(dits.at(-1),/conquis/,'déjà conquis : rien');
+  c.annoncerVerdict(manche(c,p,'Santé'));assert.match(dits.at(-1),/Santé conquise\.$/);
+  c.annoncerVerdict(manche(c,p,'Argent',{},2));assert.doesNotMatch(dits.at(-1),/conquis/,'ses conquêtes à elle ne se disent pas');
+  const B={verdict:'equilibre',camps:[1,2],totaux:{1:{'Spiritualité':120,'Amour':60,'Santé':75,'Argent':200},2:{'Spiritualité':150,'Amour':90,'Santé':130,'Argent':40}},
+    faibles:{1:['Amour','Santé'],2:['Argent','Amour']},equilibre:{1:135,2:130},total:{1:455,2:410},gagnant:1,niveau:'equilibre'};
+  assert.equal(c.phraseVerdict(B),'Tes deux piliers faibles : Amour 60, Santé 75. Les siens : Argent 40, Amour 90. La partie est à toi.');
+  assert.equal(c.phraseVerdict({...B,equilibre:{1:130,2:130},niveau:'total'}),
+    'Tes deux piliers faibles : Amour 60, Santé 75. Les siens : Argent 40, Amour 90. Égalité sur l’Équilibre, le total décide : 455 contre 410. La partie est à toi.');
+  assert.equal(c.phraseVerdict({...B,camps:['nous','eux'],totaux:{nous:B.totaux[1],eux:B.totaux[2]},faibles:{nous:B.faibles[1],eux:B.faibles[2]},gagnant:'eux'}),
+    'Nos deux piliers faibles : Amour 60, Santé 75. Les leurs : Argent 40, Amour 90. La partie est à eux.');
+  dits.length=0;c.rendreFin();assert.match(dits[0],/^Tes deux piliers faibles : /);
+});
