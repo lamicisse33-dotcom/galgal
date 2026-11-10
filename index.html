@@ -2252,6 +2252,7 @@ function volAimant(){
   if(!carte) return;
 
   setTimeout(function(){                       // on laisse voir le verdict
+    if(!document.querySelector("#app .mat"))return;   // le plateau a laissé place à un autre écran
     var v=document.createElement("div"); v.id="vol";
     v.style.left=r1.left+"px"; v.style.top=r1.top+"px";
     v.style.width=r1.width+"px"; v.style.height=r1.height+"px";
