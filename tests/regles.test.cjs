@@ -380,7 +380,10 @@ test('Fantôme : son joueur ne pioche pas, la pioche ne perd qu’une carte',()=
   assert.equal(p.mains[1].length,avant1);assert.equal(p.mains[2].length,avant2);assert.equal(p.pioche.length,pioche-1);
 });
 
-/* ── Le verdict Équilibre (Lamine, 10 novembre 2026) ── */
+/* ── Le verdict Équilibre (Lamine, 10 novembre 2026) ──
+   Depuis la v23 il n'est plus le défaut ni proposé dans les réglages, mais
+   il reste dans le code : ces tests le choisissent explicitement. */
+function jeuEq(saved,env){const r=jeu(saved,env);r.c.reglerVerdict('equilibre');r.c.neuf();return r;}
 const sim=require('./simuler-equilibre.cjs');
 test('scoreEquilibre : la somme des deux piliers les plus faibles',()=>{
   const {c}=jeu();
@@ -422,7 +425,7 @@ test('Classique inchangé : sans réglage, la partie est Classique, avec son bon
   manche(c,p,'Santé',{},2);const B=c.bilanPartie(p);assert.equal(B.niveau,'total');assert.equal(B.principal[1],220);
 });
 test('Équilibre : 16 manches par défaut, le paquet entier se joue',()=>{
-  const {c}=jeu();assert.equal(c.verdictJeu,'equilibre');assert.equal(c.P.verdict,'equilibre');assert.equal(c.P.total,16);
+  const {c}=jeuEq();assert.equal(c.verdictJeu,'equilibre');assert.equal(c.P.verdict,'equilibre');assert.equal(c.P.total,16);
   const s=sim.charger();
   for(let g=0;g<60;g++){
     sim.partie(s,'sage','apprentie',777+g,g%2===0);const P=s.P;
@@ -434,13 +437,14 @@ test('Équilibre : 16 manches par défaut, le paquet entier se joue',()=>{
   }
 });
 test('réglage du verdict : mémorisé, sans toucher la partie en cours ; une durée par verdict',()=>{
-  const {c,saved}=jeu();assert.equal(c.P.verdict,'equilibre');
+  const {c,saved}=jeuEq();assert.equal(c.P.verdict,'equilibre');
   c.reglerVerdict('classique');assert.equal(saved.atoutvie_verdict,'classique');assert.equal(c.P.verdict,'equilibre');assert.equal(c.manchesSuivantes,10);
   c.ouvrirReglages();assert.match(c.reglagesHTML(),/reste en Équilibre/);
   c.neuf();assert.equal(c.P.verdict,'classique');assert.equal(c.P.total,10);
   c.reglerVerdict('equilibre');c.reglerManches(10);assert.equal(saved.atoutvie_manches_equilibre,'10');
   delete saved.atoutvie_partie;   // pas de reprise : une partie neuve
-  const r=jeu(saved);assert.equal(r.c.P.verdict,'equilibre');assert.equal(r.c.P.total,10);
+  // v23 : Équilibre n'est plus proposé — mémorisé, il redevient Piliers au démarrage.
+  const r=jeu(saved);assert.equal(r.c.P.verdict,'piliers');assert.equal(r.c.verdictJeu,'piliers');
 });
 test('table à 4 en Équilibre : par équipe, la prime de contestation va au pilier contesté, pas de bonus',()=>{
   const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(9),verdict:'equilibre'});p.ouvreur=1;p.jokers={1:[],2:[],3:[],4:[]};
@@ -487,7 +491,7 @@ test('IA en Équilibre : l’Apprentie vise ses deux piliers les plus faibles',(
   assert.equal(c.iaChoisit(null).carte.id,'s','en Classique, rien ne change : la plus forte');
 });
 test('la voix en Équilibre : piliers conquis, deux faibles au verdict, égalité dite',()=>{
-  const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};const p=c.P;p.jokers={1:[],2:[]};
+  const {c}=jeuEq(),dits=[];c.VOIX={dire:t=>dits.push(t)};const p=c.P;p.jokers={1:[],2:[]};
   c.annoncerVerdict(manche(c,p,'Amour'));assert.match(dits.at(-1),/La manche est à toi\. Amour conquis\.$/);
   c.annoncerVerdict(manche(c,p,'Amour'));assert.doesNotMatch(dits.at(-1),/conquis/,'déjà conquis : rien');
   c.annoncerVerdict(manche(c,p,'Santé'));assert.match(dits.at(-1),/Santé conquise\.$/);
@@ -517,7 +521,7 @@ test('trophées : les 40 et 50 adverses capturés, Fantôme et carte du partenai
   assert.deepEqual([...c.trophees(q,'nous')].map(t=>t.pts+' '+t.pilier),['40 Amour']);
 });
 test('trophées : la vitrine tient dans l’en-tête, repliée en compteur quand la place manque',()=>{
-  const {c,nodes}=jeu();const P=c.P;
+  const {c,nodes}=jeuEq();const P=c.P;
   const prise=(pts,pil,m)=>({id:'t'+m,pilier:pil,pts,nom:'T',cit:'',par:2,gagnePar:1,morte:true,manche:m});
   P.plis['Amour'].push(prise(50,'Amour',1),prise(40,'Santé',2));c.rendre();
   let h=nodes.get('app').innerHTML;
@@ -529,14 +533,14 @@ test('trophées : la vitrine tient dans l’en-tête, repliée en compteur quand
   assert.doesNotMatch(nodes.get('app').innerHTML,/vitrine/,'Classique : en-tête inchangé');
 });
 test('trophées : la voix les dit au verdict, après le reste',()=>{
-  const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};
+  const {c}=jeuEq(),dits=[];c.VOIX={dire:t=>dits.push(t)};
   c.annoncerVerdict({c1:{pts:30,pilier:'Santé'},c2:{pts:50,pilier:'Amour'},jokers:{2:'j1'},bloque:{2:true},perdu:{},gagnant:1,ouvreur:1,egalite:false});
   assert.match(dits.at(-1),/La manche est à toi\. Tu lui prends son 50 d’Amour\.$/);
   c.annoncerVerdict({c1:{pts:40,pilier:'Santé'},c2:{pts:50,pilier:'Argent'},jokers:{},bloque:{},perdu:{},gagnant:2,ouvreur:1,egalite:false});
   assert.equal(dits.at(-1),'Ton 40 de Santé contre son 50 d’Argent. La manche est à elle. Elle te prend ton 40 de Santé.');
   c.annoncerVerdict({c1:{pts:30,pilier:'Santé',fantome:true},c2:{pts:20,pilier:'Amour'},jokers:{},bloque:{},perdu:{},gagnant:2,ouvreur:1,egalite:false});
   assert.doesNotMatch(dits.at(-1),/prend/);
-  const t4=jeu({atoutvie_mode:'table4'}).c,d4=[];t4.VOIX={dire:t=>d4.push(t)};
+  const t4=jeuEq({atoutvie_mode:'table4'}).c,d4=[];t4.VOIX={dire:t=>d4.push(t)};
   const pose=(joueur,pts,pilier)=>({joueur,pilier,valeur:pts,carte:{pts,pilier},joker:null});
   t4.annoncerVerdict({poses:[pose(1,50,'Santé'),pose(2,40,'Amour'),pose(3,10,'Argent'),pose(4,50,'Spiritualité')],gagnant:1,equipe:'nous',bloque:{}});
   assert.match(d4.at(-1),/Votre équipe prend le 40 d’Amour d’Est\. Votre équipe prend le 50 de Spiritualité d’Ouest\.$/);

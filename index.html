@@ -649,7 +649,7 @@ function nouvellePartie(opts = {}) {
     donne: opts.donne || null,     // le jour (AAAAMMJJ) si c'est la donne du jour
     // Le verdict de la partie, fixé à sa création : en changer dans les
     // réglages ne touche pas la partie en cours. Sans précision : Classique.
-    verdict: opts.verdict === "equilibre" ? "equilibre" : "classique",
+    verdict: VERDICTS[opts.verdict] ? opts.verdict : "classique",
     rnd,
   };
 }
@@ -832,8 +832,11 @@ function finie(p) {
    va au pilier contesté. Pas de Bonus Équilibre. Égalité → le total le plus
    haut ; égalité encore → départage (voir departage).
    Le mode « Classique » garde l'ancien verdict : le total, bonus compris. */
-var VERDICTS={equilibre:"Équilibre",classique:"Classique"};
-function verdictDe(p){ return p && p.verdict==="equilibre" ? "equilibre" : "classique"; }
+var VERDICTS={piliers:"Piliers",equilibre:"Équilibre",classique:"Classique"};
+/* Les verdicts qu'on choisit dans les réglages. Équilibre reste dans le code
+   (et ses tests), mais n'est plus proposé — Lamine, 10 novembre 2026. */
+var VERDICTS_PROPOSES=["piliers","classique"];
+function verdictDe(p){ return p && VERDICTS[p.verdict] ? p.verdict : "classique"; }
 function campsDe(p){ return p.mode==="table4" ? ["nous","eux"] : [1,2]; }
 function totalDe(p,camp){ return p.mode==="table4" ? p.scores[camp] : p["s"+camp]; }
 /* Fonction pure : la somme des deux plus faibles de quatre totaux
@@ -878,12 +881,51 @@ function bilanPartie(p){
     r.principal[c]=r.verdict==="equilibre"?r.equilibre[c]:r.total[c];
     r.trophees=r.trophees||{};r.trophees[c]=trophees(p,c);
   });
+  if(r.verdict==="piliers"){
+    var t={};t[a]=r.totaux[a];t[b]=r.totaux[b];
+    r.piliers=verdictPiliers(t);
+    r.principal[a]=r.piliers.piliers[a].length;r.principal[b]=r.piliers.piliers[b].length;
+    r.razzia=r.piliers.razzia;
+    if(r.piliers.gagnant!==null){r.gagnant=r.piliers.gagnant;r.niveau=r.razzia?"razzia":"piliers";}
+    else if(p.decisive&&p.decisive.joue){r.gagnant=p.decisive.gagnant;r.niveau="decisive";}
+    else r.niveau="decisive_a_jouer";
+    return r;
+  }
   var niveaux=r.verdict==="equilibre"?departage(p,r):[["total",r.total[a],r.total[b]]];
   for(var i=0;i<niveaux.length;i++){
     if(niveaux[i][1]!==niveaux[i][2]){r.gagnant=niveaux[i][1]>niveaux[i][2]?a:b;r.niveau=niveaux[i][0];break;}
   }
   return r;
 }
+/* ═══ LE VERDICT « PILIERS » — Lamine, 10 novembre 2026 ══════════════════
+   Le défaut. On compare pilier par pilier les points gagnés (les butins des
+   manches gagnées sur ce pilier, jokers compris ; à 4, la prime d'une
+   contestation va au pilier contesté). Un pilier va à qui y a le plus de
+   points ; à égalité — 0-0 compris — il n'est à personne : il est disputé.
+   Le plus de piliers gagne ; 4-0, c'est une « Razzia ». Pas de bonus.
+   Sans vainqueur (2-2, 1-1, 0-0) : la manche décisive, en mort subite.
+
+   Fonction pure : `totaux` = {campA:{pilier:points}, campB:{…}}. */
+function verdictPiliers(totaux){
+  var camps=Object.keys(totaux).map(function(k){return /^\d+$/.test(k)?+k:k;}),a=camps[0],b=camps[1];
+  var r={piliers:{disputes:[]},gagnant:null,razzia:false};r.piliers[a]=[];r.piliers[b]=[];
+  PILIERS.forEach(function(x){
+    var va=(totaux[a]&&totaux[a][x])||0,vb=(totaux[b]&&totaux[b][x])||0;
+    if(va>vb)r.piliers[a].push(x);else if(vb>va)r.piliers[b].push(x);else r.piliers.disputes.push(x);
+  });
+  if(r.piliers[a].length!==r.piliers[b].length)r.gagnant=r.piliers[a].length>r.piliers[b].length?a:b;
+  r.razzia=r.gagnant!==null&&r.piliers[r.gagnant].length===4;
+  return r;
+}
+/* Qui tient chaque pilier à un moment donné (après `n` manches si donné) :
+   {pilier: camp | null}. Sert à la voix et à l'IA. */
+function fronts(p,n){
+  var c=campsDe(p),t={};t[c[0]]=totauxParPilier(p,c[0],n);t[c[1]]=totauxParPilier(p,c[1],n);
+  var v=verdictPiliers(t),f={};
+  PILIERS.forEach(function(x){f[x]=v.piliers[c[0]].indexOf(x)>=0?c[0]:(v.piliers[c[1]].indexOf(x)>=0?c[1]:null);});
+  return f;
+}
+
 /* LES TROPHÉES : les 40 et les 50 ADVERSES capturés — la carte du perdant
    qui vient dans le pli du vainqueur. Le Fantôme n'en est pas un. À 4, la
    carte d'un partenaire ne compte pas. */
@@ -917,12 +959,15 @@ var P=null, etape="ouvrir", pilJ=null, pilIA=null, cJ=null, cIA=null, dernier=nu
 /* Le verdict des prochaines parties : Équilibre par défaut, Classique au
    choix. Chacun a sa durée : 16 manches en Équilibre (le paquet de 32 se
    joue entièrement), 10 en Classique ; un autre choix reste mémorisé. */
-var verdictJeu='equilibre';
-try{var vdt=localStorage.getItem('atoutvie_verdict');if(VERDICTS[vdt])verdictJeu=vdt;}catch(e){}
-function cleManches(v){return v==='equilibre'?'atoutvie_manches_equilibre':'atoutvie_manches';}
+/* Depuis le 10 novembre 2026 (v23) : Piliers par défaut, Classique au
+   choix. Équilibre n'est plus proposé : un choix « equilibre » resté dans le
+   téléphone est lu comme Piliers. Le code peut toujours le régler (tests). */
+var verdictJeu='piliers';
+try{var vdt=localStorage.getItem('atoutvie_verdict');if(VERDICTS_PROPOSES.indexOf(vdt)>=0)verdictJeu=vdt;}catch(e){}
+function cleManches(v){return v==='classique'?'atoutvie_manches':'atoutvie_manches_'+v;}
 function lireManches(v){
   try{var n=Number(localStorage.getItem(cleManches(v)));if([8,10,12,16].includes(n))return n;}catch(e){}
-  return v==='equilibre'?16:10;
+  return v==='classique'?10:16;
 }
 var manchesSuivantes=lireManches(verdictJeu);
 function reglerVerdict(v){
@@ -1335,7 +1380,7 @@ function nouvelleTable4(opts){
     piliersGagnes:{nous:[],eux:[]},
     bonusEquilibre:{nous:false,eux:false},
     historique:[], donne:opts.donne||null, rnd:rnd,
-    verdict:opts.verdict==="equilibre"?"equilibre":"classique"
+    verdict:VERDICTS[opts.verdict]?opts.verdict:"classique"
   };
 }
 
@@ -2239,11 +2284,10 @@ function reglagesHTML(){
       +'<button class="'+(modeJeu==='table4'?'on':'')+'" onclick="reglerMode(\'table4\')">Table à 4</button></div></div>'
     +(modeJeu!==(P.mode==='table4'?'table4':'duel')?'<button class="fermer or" onclick="reglagesOuverts=false;neuf()">Commencer une partie en '+MODES[modeJeu]+'</button>':'')
     +'<div class="regle"><label>Verdict</label><div class="niveaux" style="flex:1.4">'
-      +'<button class="'+(verdictJeu==='equilibre'?'on':'')+'" onclick="reglerVerdict(\'equilibre\')">Équilibre</button>'
-      +'<button class="'+(verdictJeu==='classique'?'on':'')+'" onclick="reglerVerdict(\'classique\')">Classique</button></div></div>'
-    +'<div class="note">'+(verdictJeu==='equilibre'
-        ?'<b>Équilibre :</b> ton score est la somme de tes deux piliers les plus faibles. Un pilier délaissé te fait perdre, même avec un gros total.'
-        :'<b>Classique :</b> le plus gros total gagne, et +40 à qui remporte une manche dans les quatre piliers.')
+      +VERDICTS_PROPOSES.map(function(v){return '<button class="'+(verdictJeu===v?'on':'')+'" onclick="reglerVerdict(\''+v+'\')">'+VERDICTS[v]+'</button>';}).join('')+'</div></div>'
+    +'<div class="note">'+({piliers:'<b>Piliers :</b> chaque pilier va à qui y a gagné le plus de points. Le plus de piliers l’emporte ; à égalité, une manche décisive.',
+        equilibre:'<b>Équilibre :</b> ton score est la somme de tes deux piliers les plus faibles. Un pilier délaissé te fait perdre, même avec un gros total.',
+        classique:'<b>Classique :</b> le plus gros total gagne, et +40 à qui remporte une manche dans les quatre piliers.'})[verdictJeu]
       +(verdictJeu!==verdictDe(P)?' La partie en cours reste en '+VERDICTS[verdictDe(P)]+' ; le changement vaut pour la suivante.':'')+'</div>'
     +(verdictJeu!==verdictDe(P)&&!P.donne?'<button class="fermer or" onclick="reglagesOuverts=false;neuf()">Commencer une partie en '+VERDICTS[verdictJeu]+'</button>':'')
     +'<div class="regle"><label>Manches par partie</label>'
