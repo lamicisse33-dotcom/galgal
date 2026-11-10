@@ -912,11 +912,16 @@ function neuf(opts){ clearInterval(cielTimer); if(!AUDIO.estMuet()) MUSIQUE.dema
 
 /* L'ordinateur décide avant de connaître la carte ou le joker du joueur.
    Il utilise sa main, ses piliers gagnés et le pilier annoncé. */
-function iaChoisit(interdit){
-  var candidats=P.mains[2].filter(function(c){return c.pilier!==interdit;});
-  var fantome=P.jokers[2].some(function(j){return j.id==='j5';});
-  if(!candidats.length && !fantome)candidats=P.mains[2].slice();
-  var valeur=function(c){return c.pts+(P.piliersGagnes[2].includes(c.pilier)?0:14);};
+/* `moi` : le siège de l'IA (2 par défaut — la simulation la fait jouer
+   aussi en 1). En Équilibre, l'Apprentie ajoute +14 aux piliers qui sont
+   parmi ses deux plus faibles ; en Classique, à ceux qu'elle n'a pas gagnés. */
+function iaChoisit(interdit,moi){
+  moi=moi||2;
+  var candidats=P.mains[moi].filter(function(c){return c.pilier!==interdit;});
+  var fantome=P.jokers[moi].some(function(j){return j.id==='j5';});
+  if(!candidats.length && !fantome)candidats=P.mains[moi].slice();
+  var eq=verdictDe(P)==='equilibre', t=eq?totauxParPilier(P,moi):null;
+  var valeur=function(c){return c.pts+(eq?(estFaible(t,c.pilier)?14:0):(P.piliersGagnes[moi].includes(c.pilier)?0:14));};
   var meilleur=null;
   candidats.forEach(function(c){if(!meilleur || valeur(c)>valeur(meilleur))meilleur=c;});
   if(fantome){
@@ -957,20 +962,43 @@ function estimerManche(pts,inconnues,piliers,egaliteGagne){
   if(!wsum)return {gain:0.5,attendu:27};
   return {gain:pw/wsum,attendu:sum/wsum};
 }
-function sageChoisit(interdit){
-  var ouvre=(P.initiative===2);
-  var inconnues=inconnuesPour(2);
+/* Verdict Équilibre : ce que vaut un pilier pour la Sage. Gagner sur un de
+   SES deux plus faibles vaut tout ; ailleurs, peu. Perdre une manche sur un
+   des deux plus faibles de l'ADVERSAIRE fait tout le mal ; ailleurs, moins.
+   Ajusté par la simulation (tests/simuler-equilibre.cjs). */
+var POIDS_EQ={utileFaible:1,utileFort:0.25,malFaible:1,malFort:0.6};
+function utilitePilier(t,pil){return estFaible(t,pil)?POIDS_EQ.utileFaible:POIDS_EQ.utileFort;}
+function malPilier(t,pil){return estFaible(t,pil)?POIDS_EQ.malFaible:POIDS_EQ.malFort;}
+function moyenneDe(v){var s=0;v.forEach(function(x){s+=x;});return v.length?s/v.length:0;}
+/* `moi` : son siège (2 par défaut). `logique` : « equilibre » ou
+   « classique » — par défaut celle du verdict de la partie ; la simulation
+   fait jouer l'ancienne logique sous le verdict Équilibre pour comparer. */
+function sageChoisit(interdit,moi,logique){
+  moi=moi||2;var adv=moi===1?2:1;
+  var eq=(logique||verdictDe(P))==='equilibre';
+  var ouvre=(P.initiative===moi);
+  var inconnues=inconnuesPour(moi);
   var autorises=PILIERS.filter(function(p){return p!==interdit;});
-  var candidats=P.mains[2].filter(function(c){return c.pilier!==interdit;});
-  var fantome=P.jokers[2].some(function(j){return j.id==='j5';});
-  if(!candidats.length && !fantome)candidats=P.mains[2].slice();
+  var candidats=P.mains[moi].filter(function(c){return c.pilier!==interdit;});
+  var fantome=P.jokers[moi].some(function(j){return j.id==='j5';});
+  if(!candidats.length && !fantome)candidats=P.mains[moi].slice();
   var restantes=P.total-P.manche+1;
+  var tMoi=eq?totauxParPilier(P,moi):null, tAdv=eq?totauxParPilier(P,adv):null;
   function evaluer(c){
     var cibles=ouvre?PILIERS.filter(function(q){return q!==c.pilier;}):[interdit];
     var e=estimerManche(c.pts,inconnues,cibles,ouvre);
-    var ev=(2*e.gain-1)*(c.pts+e.attendu);
-    // Le Bonus Équilibre vaut 40 : un pilier manquant mérite un petit effort.
-    if(!P.piliersGagnes[2].includes(c.pilier) && P.piliersGagnes[2].length>=2 && restantes>=2)ev+=6;
+    var pot=c.pts+e.attendu, ev;
+    if(eq){
+      // Gagner : le pot va à SON pilier. Perdre : il va à celui de l'adversaire —
+      // connu quand elle répond ; quand elle ouvre, l'un des trois autres. Ouvrir
+      // sur le pilier faible de l'adversaire l'empêche d'y répondre : c'est l'attaque.
+      var mal=ouvre?moyenneDe(cibles.map(function(q){return malPilier(tAdv,q);})):malPilier(tAdv,interdit);
+      ev=e.gain*pot*utilitePilier(tMoi,c.pilier)-(1-e.gain)*pot*mal;
+    }else{
+      ev=(2*e.gain-1)*pot;
+      // Le Bonus Équilibre vaut 40 : un pilier manquant mérite un petit effort.
+      if(!P.piliersGagnes[moi].includes(c.pilier) && P.piliersGagnes[moi].length>=2 && restantes>=2)ev+=6;
+    }
     return {ev:ev,gain:e.gain};
   }
   var meilleur=null,note=null;
@@ -989,13 +1017,26 @@ function sageChoisit(interdit){
   }
   return {pil:meilleur?meilleur.pilier:interdit,carte:meilleur,gain:note?note.gain:0.5};
 }
-function jokerSage(carte,gain){
+function jokerSage(carte,gain,moi,logique){
   if(!carte || carte.fantome)return null;
-  var a=function(id){return P.jokers[2].some(function(j){return j.id===id;});};
-  var derniere=P.manche===P.total, retard=P.s2<P.s1;
+  moi=moi||2;var adv=moi===1?2:1;
+  var a=function(id){return P.jokers[moi].some(function(j){return j.id===id;});};
+  var derniere=P.manche===P.total;
+  if((logique||verdictDe(P))==='equilibre'){
+    var tMoi=totauxParPilier(P,moi),tAdv=totauxParPilier(P,adv);
+    var faible=estFaible(tMoi,carte.pilier), vierge=!tMoi[carte.pilier];
+    var enRetard=scoreEquilibre(tMoi)<scoreEquilibre(tAdv);
+    // Brakeur : de préférence pour conquérir un pilier faible encore à 0.
+    if(a('j1') && ((gain<=0.5 && faible && vierge) || (gain<=0.25 && faible) || (derniere && enRetard)))return 'j1';
+    // Multiplicateur : de préférence sur un pilier faible.
+    if(a('j2') && ((gain>=0.65 && faible) || (derniere && gain>=0.5)))return 'j2';
+    if(a('j4') && !bouclierEngage(P,moi) && (gain>=0.6 && carte.pts>=30 || P.manche>=P.total-1))return 'j4';
+    return null;
+  }
+  var retard=P['s'+moi]<P['s'+adv];
   if(a('j1') && (gain<=0.4 || (derniere && retard)))return 'j1';          // elle va perdre : elle braque
   if(a('j2') && (gain>=0.7 || (derniere && gain>=0.5)))return 'j2';       // elle va gagner : elle double
-  if(a('j4') && !bouclierEngage(P,2) && (gain>=0.6 && carte.pts>=30 || P.manche>=P.total-1))return 'j4';
+  if(a('j4') && !bouclierEngage(P,moi) && (gain>=0.6 && carte.pts>=30 || P.manche>=P.total-1))return 'j4';
   return null;
 }
 var NIVEAUX={apprentie:"Apprentie",sage:"Sage"};
@@ -1093,12 +1134,13 @@ function annoncerVerdict(d){
   if(phrases.length)VOIX.dire(phrases.join(' '));
 }
 
-function jokerIA(carte){
+function jokerIA(carte,moi){
   if(!carte || carte.fantome)return null;
-  var a=function(id){return P.jokers[2].some(function(j){return j.id===id;});};
+  moi=moi||2;
+  var a=function(id){return P.jokers[moi].some(function(j){return j.id===id;});};
   var derniere=P.manche===P.total;
   if(a('j1') && (carte.pts<=25 || derniere))return 'j1';
-  if(a('j4') && !bouclierEngage(P,2) && (carte.pts>=30 || P.manche>=P.total-1))return 'j4';
+  if(a('j4') && !bouclierEngage(P,moi) && (carte.pts>=30 || P.manche>=P.total-1))return 'j4';
   if(a('j2') && (carte.pts>=35 || derniere))return 'j2';
   return null;
 }
@@ -1383,8 +1425,13 @@ function distribution4(inc,pilier){
 function chanceDeBattre(v,d,gagneEgalite){var s=0;d.forEach(function(e){if(v>e.v||(gagneEgalite&&v===e.v))s+=e.w;});return s;}
 function esperance(d){var s=0;d.forEach(function(e){s+=e.v*e.w;});return s;}
 
-function ia4(p,joueur,coups){
+function ia4(p,joueur,coups,logique){
   var o=options4(p,joueur,coups),inc=inconnues4(p,joueur);
+  /* Verdict Équilibre : le pot va au pilier de la carte gagnante. Il vaut
+     pour l'équipe selon que ce pilier est l'un de ses deux plus faibles ;
+     perdu, il fait du mal selon qu'il tombe sur un faible de l'adversaire. */
+  var eq=(logique||verdictDe(p))==='equilibre',equipe=EQUIPE[joueur],autreEquipe=equipe==='nous'?'eux':'nous';
+  var tMoi=eq?totauxParPilier(p,equipe):null,tAdv=eq?totauxParPilier(p,autreEquipe):null;
   var ordre=ordreManche4(p),rang=ordre.indexOf(joueur);
   var dejaPose={};coups.forEach(function(c){dejaPose[c.joueur]=c;});
   var autres=[1,2,3,4].filter(function(j){return j!==joueur;});
@@ -1394,6 +1441,7 @@ function ia4(p,joueur,coups){
     var d=c?(c.carte==="fantome"?[{v:27.5,w:1}]:distribution4(inc,c.pilier)):distribution4(inc,null);
     return {j:j,d:d,avant:ordre.indexOf(j)<rang,partenaire:j===partenaireDe(joueur),e:esperance(d)};
   });
+  var partSplit={moi:0,part:0};
   function chanceEquipe(v){
     // Je gagne : je bats chacun (égalité : je gagne contre ceux qui posent après moi).
     var moi=1;profils.forEach(function(q){moi*=chanceDeBattre(v,q.d,!q.avant);});
@@ -1405,14 +1453,32 @@ function ia4(p,joueur,coups){
       opps.forEach(function(q){c*=chanceDeBattre(w,q.d,q.avant?false:true);});
       pp+=c;
     });
+    partSplit={moi:moi,part:pp};
     return Math.min(1,moi+pp);
   }
   var potAutres=0;profils.forEach(function(q){potAutres+=q.e;});
+  // Où ira le pot si c'est le partenaire, ou un adversaire, qui gagne.
+  var libresSans=function(pil){return o.libres.filter(function(x){return x!==pil;});};
+  var poseDe=function(j){return coups.filter(function(c){return c.joueur===j;})[0];};
+  function utilitePartenaire(pil){
+    var c=poseDe(partenaireDe(joueur));if(c)return utilitePilier(tMoi,c.pilier);
+    var l=libresSans(pil);return l.length?moyenneDe(l.map(function(x){return utilitePilier(tMoi,x);})):POIDS_EQ.utileFort;
+  }
+  function malAdversaires(pil){
+    var v=[];[1,2,3,4].filter(function(j){return EQUIPE[j]!==equipe;}).forEach(function(j){
+      var c=poseDe(j);if(c){v.push(malPilier(tAdv,c.pilier));return;}
+      var l=libresSans(pil);v.push(l.length?moyenneDe(l.map(function(x){return malPilier(tAdv,x);})):POIDS_EQ.malFort);
+    });
+    return moyenneDe(v);
+  }
+  function evEq(g,pot,pil){
+    return (partSplit.moi*utilitePilier(tMoi,pil)+partSplit.part*utilitePartenaire(pil))*pot-(1-g)*pot*malAdversaires(pil);
+  }
   var choix=[];
   o.avecCarte.forEach(function(pil){
     p.mains[joueur].filter(function(c){return c.pilier===pil;}).forEach(function(c){
       var g=chanceEquipe(c.pts);
-      choix.push({pilier:pil,carte:c,gain:g,ev:(2*g-1)*(c.pts+potAutres),conteste:false});
+      choix.push({pilier:pil,carte:c,gain:g,ev:eq?evEq(g,c.pts+potAutres,pil):(2*g-1)*(c.pts+potAutres),conteste:false});
     });
   });
   o.contestables.forEach(function(pil){
@@ -1420,15 +1486,17 @@ function ia4(p,joueur,coups){
     var dp=distribution4(inc,pil);
     p.mains[joueur].filter(function(c){return c.pilier===pil;}).forEach(function(c){
       var g=chanceEquipe(c.pts),gc=chanceDeBattre(c.pts,dp,false);
-      var prime=(2*gc-1)*(c.pts+esperance(dp));
-      choix.push({pilier:pil,carte:c,gain:g,ev:(2*g-1)*(c.pts+potAutres)+prime,conteste:true});
+      var mise=c.pts+esperance(dp);
+      // La prime d'une contestation va au pilier contesté.
+      var prime=eq?gc*mise*utilitePilier(tMoi,pil)-(1-gc)*mise*malPilier(tAdv,pil):(2*gc-1)*mise;
+      choix.push({pilier:pil,carte:c,gain:g,ev:(eq?evEq(g,c.pts+potAutres,pil):(2*g-1)*(c.pts+potAutres))+prime,conteste:true});
     });
   });
   if(o.fantome.length){
     o.fantome.forEach(function(pil){
       if(choix.some(function(x){return x.pilier===pil&&!x.conteste;}))return;
       var g=chanceEquipe(27.5);
-      choix.push({pilier:pil,carte:{id:"fantome",pilier:pil,pts:27.5,nom:"Fantôme",fantome:true},gain:g,ev:(2*g-1)*(27.5+potAutres)-4,conteste:o.contestables.indexOf(pil)>=0});
+      choix.push({pilier:pil,carte:{id:"fantome",pilier:pil,pts:27.5,nom:"Fantôme",fantome:true},gain:g,ev:(eq?evEq(g,27.5+potAutres,pil):(2*g-1)*(27.5+potAutres))-4,conteste:o.contestables.indexOf(pil)>=0});
     });
   }
   var meilleur=null;choix.forEach(function(x){if(!meilleur||x.ev>meilleur.ev)meilleur=x;});
@@ -1445,7 +1513,14 @@ function ia4(p,joueur,coups){
   // Le joker, un seul par joueur et par partie.
   var joker=null,a=function(id){return p.jokers[joueur].some(function(j){return j.id===id;});};
   var derniere=p.manche===p.total,retard=p.scores[EQUIPE[joueur]]<p.scores[EQUIPE[joueur]==="nous"?"eux":"nous"];
-  if(!meilleur.carte.fantome){
+  if(eq&&!meilleur.carte.fantome){
+    var faible=estFaible(tMoi,meilleur.pilier),vierge=!tMoi[meilleur.pilier];
+    retard=scoreEquilibre(tMoi)<scoreEquilibre(tAdv);
+    // Brakeur : de préférence pour conquérir un pilier faible encore à 0 ; Multiplicateur : sur un pilier faible.
+    if(a("j1")&&(meilleur.gain<=0.5&&faible&&vierge&&potAutres>=40||derniere&&retard))joker="j1";
+    else if(a("j2")&&(meilleur.gain>=0.65&&faible||derniere&&meilleur.gain>=0.5))joker="j2";
+    else if(a("j4")&&!bouclierEngage(p,joueur)&&!bouclierEngage(p,partenaireDe(joueur))&&(p.manche>=3&&meilleur.gain>=0.55||p.manche>=p.total-1))joker="j4";
+  }else if(!meilleur.carte.fantome){
     if(a("j1")&&(meilleur.gain<=0.35&&potAutres>=60||derniere&&retard))joker="j1";
     else if(a("j2")&&(meilleur.gain>=0.7||derniere&&meilleur.gain>=0.5))joker="j2";
     else if(a("j4")&&!bouclierEngage(p,joueur)&&!bouclierEngage(p,partenaireDe(joueur))&&(p.manche>=3&&meilleur.gain>=0.55||p.manche>=p.total-1))joker="j4";
