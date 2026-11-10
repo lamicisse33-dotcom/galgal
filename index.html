@@ -445,6 +445,28 @@ body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;paddin
 #app .fin{min-height:100%;padding:16px}
 @media(max-height:540px){#app{--entete-h:36px;--score-h:40px;--message-h:52px}.entete .sonbtn{height:34px;min-width:40px}#app .rond{width:26px;height:26px}.med .nb{display:none}#app .msg-content{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.k{transition:none}}
+/* Verdict Équilibre : l'en-tête et l'écran de fin */
+#app .sc.eq{padding:4px 10px;align-items:stretch;gap:6px}
+#app .sc.eq .camp{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;min-width:0;gap:1px}
+#app .sc.eq .camp.droite{align-items:flex-end}
+#app .sc.eq .camp .ligne{display:flex;flex-direction:row;align-items:baseline;gap:5px;line-height:1}
+#app .sc.eq .camp.droite .ligne{flex-direction:row-reverse}
+#app .sc.eq .camp .ligne b{font-size:calc(24px * var(--ui-scale))}
+#app .sc.eq .camp .ligne small{font-size:calc(9px * var(--ui-scale));color:#b4c1d2;white-space:nowrap}
+#app .sc.eq .mid{align-self:center}
+.sc.eq .pils{display:flex;flex-direction:row;gap:3px}
+.sc.eq .pil{display:flex;align-items:center;gap:1px;font:700 calc(10px * var(--ui-scale))/1 Cinzel,serif;color:#cfd8e6;padding:0 0 1px;border-bottom:2px solid transparent;white-space:nowrap}
+.sc.eq .pil i{display:block;width:calc(12px * var(--ui-scale));height:calc(12px * var(--ui-scale));border-radius:50%;background-size:100%;flex-shrink:0}
+.sc.eq .pil.faible{color:#F0D060;border-bottom-color:#F0D060}
+.piliers-fin{margin:14px auto 4px;border-collapse:collapse;font-size:14px;min-width:260px}
+.piliers-fin th{font-family:Cinzel,serif;font-size:11px;letter-spacing:1px;color:#C9A227;padding:4px 10px}
+.piliers-fin td{padding:4px 10px;text-align:center;color:#e8edf5;border-top:1px solid #ffffff14}
+.piliers-fin td:first-child{text-align:left;white-space:nowrap}
+.piliers-fin td i{display:inline-block;width:16px;height:16px;border-radius:50%;background-size:100%;vertical-align:-3px;margin-right:6px}
+.piliers-fin td.faible{color:#F0D060;font-weight:700;text-decoration:underline;text-decoration-color:#F0D060;text-underline-offset:3px}
+.piliers-fin tr.eqf td{font-family:Cinzel,serif;font-weight:800;color:#fff;font-size:16px;border-top:1px solid #C9A22788}
+.piliers-fin tr.tot td{color:#8b8397;font-size:12px}
+.verdict-fin{max-width:420px;margin:8px auto 0;font-size:15px;line-height:1.45;color:#f0e6c8}
 
 
 /* À distance sur télévision, les commandes grandissent avec l'écran. */
@@ -1524,10 +1546,12 @@ function rendre4(){
   }
   if(etape!=="verdict"&&(bouclierEngage(P,1)||bouclierEngage(P,3)))msg+='<br><small>🛡️ Notre protection : '+((P.bouclier[1]||P.bouclier[3]).restantes)+' manche(s)</small>';
 
+  var milieu='<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+'Table à 4</span></div>';
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
-    +'<div class="sc"><div class="'+(nous>eux?"mene":"")+'"><span>NOUS · piliers '+P.piliersGagnes.nous.length+'/4</span><b>'+nous+'</b></div>'
-    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+'Table à 4</span></div>'
-    +'<div class="'+(eux>nous?"mene":"")+'" style="align-items:flex-end"><span>EUX · piliers '+P.piliersGagnes.eux.length+'/4</span><b>'+eux+'</b></div></div></div>';
+    +(verdictDe(P)==="equilibre"?scoresEquilibreHTML({nous:"NOUS",eux:"EUX"},milieu):
+     '<div class="sc"><div class="'+(nous>eux?"mene":"")+'"><span>NOUS · piliers '+P.piliersGagnes.nous.length+'/4</span><b>'+nous+'</b></div>'
+    +milieu
+    +'<div class="'+(eux>nous?"mene":"")+'" style="align-items:flex-end"><span>EUX · piliers '+P.piliersGagnes.eux.length+'/4</span><b>'+eux+'</b></div></div>')+'</div>';
 
   h+='<div class="mat"><div class="rang">';
   PILIERS.forEach(function(p){
@@ -1600,13 +1624,14 @@ function rendreFin4(){
   document.getElementById("app").innerHTML='<div id="ciel"></div><div class="fin"><div class="titre">'+(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
     +'<div class="score">'+nous+' <span style="opacity:.4">—</span> '+eux+'</div>'
     +'<div class="donne">'+(P.donne?'☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+' · ':'')+'TABLE À 4 · TOI & NORD CONTRE EST & OUEST</div>'
+    +(B.verdict==='equilibre'?tableauPiliersHTML(B,{nous:'Nous',eux:'Eux'})+'<p class="verdict-fin">'+phraseVerdict(B)+'</p>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '+Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
     +'<div class="bilan">'+Object.keys(P.plis).map(function(p){
         if(!P.plis[p].length)return "";
         var n1=P.plis[p].filter(function(c){return c.gagnePar==="nous";}).length,n2=P.plis[p].length-n1;
         return '<div class="col"><div class="tit">'+p+' — nous '+n1+' · eux '+n2+'</div><div class="lot">'+P.plis[p].map(function(c){return '<div class="mini">'+carteHTML(c)+'</div>';}).join("")+'</div></div>';
       }).join("")+'</div>'
-    +'<p>Bonus Équilibre : nous '+(P.bonusEquilibre.nous?'+40':'0')+' · eux '+(P.bonusEquilibre.eux?'+40':'0')+'</p>'
+    +(B.verdict==='equilibre'?'':'<p>Bonus Équilibre : nous '+(P.bonusEquilibre.nous?'+40':'0')+' · eux '+(P.bonusEquilibre.eux?'+40':'0')+'</p>')
     +'<div class="actions"><button class="act" onclick="neuf()">Rejouer</button><button class="act" onclick="partager()">Partager</button>'
     +(P.donne?'':'<button class="act" onclick="donneDuJour()">☀️ Donne du jour</button>')+'</div></div>';
   if(gagne||nul)lancerFeux();
@@ -2079,6 +2104,14 @@ function reglagesHTML(){
       +'<button class="'+(modeJeu==='duel'?'on':'')+'" onclick="reglerMode(\'duel\')">Duel</button>'
       +'<button class="'+(modeJeu==='table4'?'on':'')+'" onclick="reglerMode(\'table4\')">Table à 4</button></div></div>'
     +(modeJeu!==(P.mode==='table4'?'table4':'duel')?'<button class="fermer or" onclick="reglagesOuverts=false;neuf()">Commencer une partie en '+MODES[modeJeu]+'</button>':'')
+    +'<div class="regle"><label>Verdict</label><div class="niveaux" style="flex:1.4">'
+      +'<button class="'+(verdictJeu==='equilibre'?'on':'')+'" onclick="reglerVerdict(\'equilibre\')">Équilibre</button>'
+      +'<button class="'+(verdictJeu==='classique'?'on':'')+'" onclick="reglerVerdict(\'classique\')">Classique</button></div></div>'
+    +'<div class="note">'+(verdictJeu==='equilibre'
+        ?'<b>Équilibre :</b> ton score est la somme de tes deux piliers les plus faibles. Un pilier délaissé te fait perdre, même avec un gros total.'
+        :'<b>Classique :</b> le plus gros total gagne, et +40 à qui remporte une manche dans les quatre piliers.')
+      +(verdictJeu!==verdictDe(P)?' La partie en cours reste en '+VERDICTS[verdictDe(P)]+' ; le changement vaut pour la suivante.':'')+'</div>'
+    +(verdictJeu!==verdictDe(P)&&!P.donne?'<button class="fermer or" onclick="reglagesOuverts=false;neuf()">Commencer une partie en '+VERDICTS[verdictJeu]+'</button>':'')
     +'<div class="regle"><label>Manches par partie</label>'
       +'<select onchange="reglerManches(this.value)">'
       +[8,10,12,16].map(function(n){
@@ -2135,7 +2168,8 @@ function dimensionsJeu(){
   var hauteur=(app&&app.clientHeight)||h-16;
   var facteur=Math.max(1,Math.min(2.2,h/800));
   var compact=h<540;
-  var entete=compact?36:Math.round(44*facteur), score=compact?40:Math.round(52*facteur), message=compact?52:Math.round(72*facteur), ecart=6;
+  var eq=P&&verdictDe(P)==='equilibre';
+  var entete=compact?36:Math.round(44*facteur), score=compact?(eq?54:40):Math.round((eq?66:52)*facteur), message=compact?52:Math.round(72*facteur), ecart=6;
   var contenu=Math.max(120,hauteur-entete-score-4*ecart-message);
   var colonnes=P&&P.mode==='table4'?4:5, lignes=2;
   var largeurMain=large?(largeur-ecart)*.38:largeur;
@@ -2288,6 +2322,46 @@ function carteHTML(c){
     +'</div>';
 }
 
+/* ═══ L'ÉQUILIBRE À L'ÉCRAN ════════════════════════════════════════════
+   En-tête : pour chaque camp, son score d'Équilibre en gros (le total en
+   petit), et ses quatre piliers — emblème et points —, les deux plus
+   faibles soulignés en doré : ce sont eux qui comptent. */
+function pilierCourt(p,pts,faible){
+  return '<span class="pil'+(faible?' faible':'')+'" title="'+p+' '+pts+'"><i class="e-'+CLE[p]+'"></i>'+pts+'</span>';
+}
+function scoresEquilibreHTML(noms,milieu){
+  var B=bilanPartie(P),c=B.camps,a=c[0],b=c[1];
+  function camp(x,autre,droite){
+    var t=B.totaux[x];
+    return '<div class="camp'+(droite?' droite':'')+(B.equilibre[x]>B.equilibre[autre]?' mene':'')+'">'
+      +'<span class="nom">'+noms[x]+'</span>'
+      +'<div class="ligne"><b>'+B.equilibre[x]+'</b><small>total '+B.total[x]+'</small></div>'
+      +'<div class="pils">'+PILIERS.map(function(p){return pilierCourt(p,t[p],B.faibles[x].indexOf(p)>=0);}).join('')+'</div></div>';
+  }
+  return '<div class="sc eq">'+camp(a,b,false)+milieu+camp(b,a,true)+'</div>';
+}
+/* Fin de partie : les quatre piliers des deux camps, les deux faibles marqués. */
+function tableauPiliersHTML(B,noms){
+  var c=B.camps;
+  return '<table class="piliers-fin"><tr><th></th>'+c.map(function(x){return '<th>'+noms[x]+'</th>';}).join('')+'</tr>'
+    +PILIERS.map(function(p){
+      return '<tr><td><i class="e-'+CLE[p]+'"></i>'+p+'</td>'+c.map(function(x){
+        var f=B.faibles[x].indexOf(p)>=0;return '<td class="'+(f?'faible':'')+'">'+B.totaux[x][p]+'</td>';}).join('')+'</tr>';
+    }).join('')
+    +'<tr class="eqf"><td>Équilibre</td>'+c.map(function(x){return '<td>'+B.equilibre[x]+'</td>';}).join('')+'</tr>'
+    +'<tr class="tot"><td>Total</td>'+c.map(function(x){return '<td>'+B.total[x]+'</td>';}).join('')+'</tr></table>';
+}
+/* La phrase du verdict, la même à l'écran et à la voix. */
+function deuxFaibles(B,x){ return B.faibles[x].map(function(p){return p+' '+B.totaux[x][p];}).join(', '); }
+function phraseVerdict(B){
+  var t4=B.camps[0]==='nous',a=B.camps[0],b=B.camps[1];
+  var issue=B.gagnant===null?'Partie nulle.':(B.gagnant===a?(t4?'La partie est à nous.':'La partie est à toi.'):(t4?'La partie est à eux.':'La partie est à elle.'));
+  if(B.verdict!=='equilibre')return issue;
+  var debut=(t4?'Nos deux piliers faibles : ':'Tes deux piliers faibles : ')+deuxFaibles(B,a)+'. '+(t4?'Les leurs : ':'Les siens : ')+deuxFaibles(B,b)+'.';
+  if(B.niveau==='total')return debut+' Égalité sur l’Équilibre, le total décide : '+B.total[a]+' contre '+B.total[b]+'. '+issue;
+  return debut+' '+issue;
+}
+
 function rendre(){
   if(P.mode==='table4')return rendre4();
   var ouvreur=P.initiative, jOuvre=(ouvreur===1);
@@ -2343,10 +2417,12 @@ function rendre(){
 
   if(etape!=="verdict" && bouclierEngage(P,1))msg+='<br><small>🛡️ Protection : '+P.bouclier[1].restantes+' manche(s) restante(s)</small>';
 
+  var milieu='<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveauEffectif()]+' · pioche '+P.pioche.length+'</span></div>';
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
-    +'<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
-    +'<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveauEffectif()]+' · pioche '+P.pioche.length+'</span></div>'
-    +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div></div>';
+    +(verdictDe(P)==="equilibre"?scoresEquilibreHTML({1:"TOI",2:"ELLE"},milieu):
+     '<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
+    +milieu
+    +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div>')+'</div>';
 
   h+='<div class="mat"><div class="rang">';
   PILIERS.forEach(function(p){
@@ -2646,6 +2722,7 @@ function rendreFin(){
       +(nul?"ÉGALITÉ":(gagne?"VICTOIRE":"DÉFAITE"))+'</div>'
     +'<div class="score">'+s1+' <span style="opacity:.4">—</span> '+s2+'</div>'
     +(P.donne?'<div class="donne">☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+(P._premiere?' · PREMIÈRE TENTATIVE':(gardee?' · ENTRAÎNEMENT — ta première tentative : '+gardee.s1+'–'+gardee.s2:''))+'</div>':'')
+    +(B.verdict==='equilibre'?tableauPiliersHTML(B,{1:'Toi',2:'Elle'})+'<p class="verdict-fin">'+phraseVerdict(B)+'</p>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '
     +Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
     +'<div class="bilan">'+Object.keys(P.plis).map(function(p){
@@ -2656,7 +2733,7 @@ function rendreFin(){
           +P.plis[p].map(function(c){return '<div class="mini">'+carteHTML(c)+'</div>';}).join("")
           +'</div></div>';
       }).join("")+'</div>'
-    +'<p>Bonus Équilibre : toi '+(P.bonusEquilibre[1]?'+40':'0')+' · elle '+(P.bonusEquilibre[2]?'+40':'0')+'</p>'
+    +(B.verdict==='equilibre'?'':'<p>Bonus Équilibre : toi '+(P.bonusEquilibre[1]?'+40':'0')+' · elle '+(P.bonusEquilibre[2]?'+40':'0')+'</p>')
     +'<div class="actions"><button class="act" onclick="neuf()">Rejouer</button>'
     +'<button class="act" onclick="partager()">Partager</button>'
     +(P.donne?'':'<button class="act" onclick="donneDuJour()">☀️ Donne du jour</button>')+'</div></div>';

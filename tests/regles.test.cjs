@@ -248,7 +248,7 @@ test('table à 4 à l’écran : une partie complète au doigt, reprise après i
     avancer();
     if(nodes.get('app').innerHTML.includes('class="fin"'))break;
     if(c.etape==='pilier'){
-      assert.ok(nodes.get('app').innerHTML.includes('NOUS · piliers'));
+      assert.ok(nodes.get('app').innerHTML.includes('>NOUS'),'l’en-tête nomme notre équipe');
       const o=c.options4(c.P,1,c.coups4);const pil=o.avecCarte[0]||o.contestables[0]||o.mortes[0];
       c.choisirPilier(pil);assert.equal(c.etape,'poser');
       const k=c.P.mains[1].find(x=>x.pilier===pil)||c.P.mains[1][0];c.jouerCarte(k.id);
