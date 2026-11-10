@@ -965,8 +965,11 @@ function estimerManche(pts,inconnues,piliers,egaliteGagne){
 /* Verdict Équilibre : ce que vaut un pilier pour la Sage. Gagner sur un de
    SES deux plus faibles vaut tout ; ailleurs, peu. Perdre une manche sur un
    des deux plus faibles de l'ADVERSAIRE fait tout le mal ; ailleurs, moins.
-   Ajusté par la simulation (tests/simuler-equilibre.cjs). */
-var POIDS_EQ={utileFaible:1,utileFort:0.25,malFaible:1,malFort:0.6};
+   Ajusté par la simulation (tests/simuler-equilibre.cjs), 10 nov. 2026 :
+   avec le mal sur un pilier faible adverse à 1, la nouvelle Sage ne battait
+   l'ancienne qu'à 50 % ; à 1,5 elle la bat à 60 %, l'Apprentie à 76 %.
+   À 2 elle monte à 68 % et 83 % — trop dure pour un humain, pas retenu. */
+var POIDS_EQ={utileFaible:1,utileFort:0.25,malFaible:1.5,malFort:0.6};
 function utilitePilier(t,pil){return estFaible(t,pil)?POIDS_EQ.utileFaible:POIDS_EQ.utileFort;}
 function malPilier(t,pil){return estFaible(t,pil)?POIDS_EQ.malFaible:POIDS_EQ.malFort;}
 function moyenneDe(v){var s=0;v.forEach(function(x){s+=x;});return v.length?s/v.length:0;}
