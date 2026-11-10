@@ -1285,9 +1285,19 @@ function phraseTrophees(d){
   if(!gros(perdue))return '';
   return d.gagnant===1?'Tu lui prends son '+perdue.pts+' '+deDu(perdue.pilier)+'.':'Elle te prend ton '+perdue.pts+' '+deDu(perdue.pilier)+'.';
 }
+/* Verdict Piliers : l'état des fronts après cette manche, seulement pour
+   les piliers dont le sort a changé. « Santé à toi. » « Argent disputé. » */
+function phraseFronts(p,h){
+  if(verdictDe(p)!=='piliers')return '';
+  var i=p.historique.indexOf(h);if(i<0)return '';
+  var avant=fronts(p,i),apres=fronts(p,i+1);
+  return PILIERS.filter(function(x){return avant[x]!==apres[x];}).map(function(x){
+    return x+(apres[x]===null?' disputé'+(x==='Santé'||x==='Spiritualité'?'e':'')+'.':' '+aQui(apres[x])+'.');
+  }).join(' ');
+}
 function annoncerVerdict(d){
   if(!d)return;
-  var conquis=[phraseConquetes(P,d),phraseTrophees(d)].filter(Boolean).join(' ');
+  var conquis=[phraseConquetes(P,d),phraseTrophees(d),phraseFronts(P,d)].filter(Boolean).join(' ');
   if(P.mode==='table4'){
     var poseGagnant=(d.poses||[]).filter(function(x){return x.joueur===d.gagnant;})[0];
     var brakeur=poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant]);
@@ -1905,7 +1915,7 @@ function plisVisibles4(p){
 function rendreFin4(){
   var B=bilanPartie(P),nous=B.principal.nous,eux=B.principal.eux,gagne=B.gagnant==="nous",nul=B.gagnant===null;
   if(!P._compte){P._compte=true;STATS.finPartie(B.total.nous,B.total.eux,P.plis,nul?0:(gagne?1:-1));
-    VOIX.dire(B.verdict==='equilibre'?phraseVerdict(B):(nul?'Partie nulle, '+nous+' partout.':(gagne?'Votre équipe a gagné la partie, '+nous+' à '+eux+'.':'Leur équipe a gagné la partie, '+eux+' à '+nous+'.')));
+    VOIX.dire(B.verdict!=='classique'?phraseVerdict(B):(nul?'Partie nulle, '+nous+' partout.':(gagne?'Votre équipe a gagné la partie, '+nous+' à '+eux+'.':'Leur équipe a gagné la partie, '+eux+' à '+nous+'.')));
     if(P.donne){try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:nous,s2:eux,gagne:gagne,mode:'table4'}));}catch(e){}}}
   oublierPartie();MUSIQUE.arrete();
   if(gagne||nul)AUDIO.fanfare();
@@ -3086,7 +3096,7 @@ function ouvrirDecisive(){
   if(neuve)annoncerDecisive();
   rendreDecisive();
 }
-function annoncerDecisive(){}
+function annoncerDecisive(){ VOIX.dire(phrasePiliers(bilanPartie(P))); }
 function commencerDecisive(){ if(P.decisive&&P.decisive.etape==="annonce"){P.decisive.etape="jouer";sauverPartie();rendreDecisive();} }
 function nomJoueur(j){ return P.mode==="table4"?(j===1?"Toi":SIEGE[j]):(j===1?"Toi":"Elle"); }
 function jouerDecisive(id){
@@ -3096,7 +3106,14 @@ function jouerDecisive(id){
   resoudreDecisive(P,coups);AUDIO.retourne();
   annoncerResultatDecisive();rendreDecisive();
 }
-function annoncerResultatDecisive(){}
+function annoncerResultatDecisive(){
+  var d=P.decisive,t;
+  if(P.mode==='table4')t=d.poses.map(function(x){return nomJoueur(x.joueur)+' '+x.valeur+' '+deDu(x.carte.pilier);}).join(', ')+'.';
+  else{var m=d.poses.filter(function(x){return x.joueur===1;})[0],e=d.poses.filter(function(x){return x.joueur===2;})[0];
+    t='Ton '+m.valeur+' '+deDu(m.carte.pilier)+' contre son '+e.valeur+' '+deDu(e.carte.pilier)+'.';}
+  if(d.egalite)t+=' Égalité : '+(d.gagnantJoueur===1?'tu ouvrais.':nomJoueur(d.gagnantJoueur)+' ouvrait.');
+  VOIX.dire(t+' La manche décisive est '+aQui(d.gagnant)+'.');
+}
 function egaliteDecisive(j){
   if(j===1)return 'la tienne l’emporte : tu ouvres, tu n’avais pas l’initiative à la dernière manche.';
   if(P.mode==='table4')return 'celle '+deDu(SIEGE[j])+' l’emporte : '+SIEGE[j]+' ouvre, sans avoir eu l’initiative à la dernière manche.';
@@ -3133,7 +3150,7 @@ function rendreFin(){
   if(P.mode==='table4')return rendreFin4();
   var B=bilanPartie(P), s1=B.principal[1], s2=B.principal[2], gagne=B.gagnant===1, nul=B.gagnant===null;
   if(!P._compte){ P._compte=true; STATS.finPartie(P.s1,P.s2,P.plis,nul?0:(gagne?1:-1));
-    VOIX.dire(B.verdict==='equilibre'?phraseVerdict(B):(nul?'Partie nulle, '+s1+' partout.':(gagne?'Tu as gagné la partie, '+s1+' à '+s2+'.':'Elle a gagné la partie, '+s2+' à '+s1+'.')));
+    VOIX.dire(B.verdict!=='classique'?phraseVerdict(B):(nul?'Partie nulle, '+s1+' partout.':(gagne?'Tu as gagné la partie, '+s1+' à '+s2+'.':'Elle a gagné la partie, '+s2+' à '+s1+'.')));
     // la première tentative du jour est gardée ; les suivantes sont de l'entraînement
     if(P.donne&&!resultatDuJour()){P._premiere=true;try{localStorage.setItem('atoutvie_donne',JSON.stringify({jour:P.donne,s1:s1,s2:s2,gagne:gagne,verdict:B.verdict}));}catch(e){}} }
   var gardee=P.donne&&resultatDuJour();
