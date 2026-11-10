@@ -132,7 +132,7 @@ test('donne du jour : même graine, mêmes mains, mêmes Fantômes',()=>{
   const a=c.nouvellePartie({rnd:c.tirage(g.graine)}),b=c.nouvellePartie({rnd:c.tirage(g.graine)});
   assert.equal(a.mains[1].map(x=>x.id).join(),b.mains[1].map(x=>x.id).join());assert.equal(JSON.stringify(a.jokers),JSON.stringify(b.jokers));
   assert.equal(c.jouerFantome(a,a.jokers[1].some(j=>j.id==='j5')?1:2,'Amour').pts,c.jouerFantome(b,b.jokers[1].some(j=>j.id==='j5')?1:2,'Amour').pts);
-  c.donneDuJour();assert.equal(c.P.donne,c.graineDuJour().jour);assert.equal(c.P.total,16);assert.equal(c.P.verdict,'equilibre');
+  c.donneDuJour();assert.equal(c.P.donne,c.graineDuJour().jour);assert.equal(c.P.total,16);assert.equal(c.P.verdict,'piliers');
   assert.ok(c.reglagesHTML.call(Object.assign(c,{reglagesOuverts:true})).includes('Donne du jour'));
 });
 test('reprise : une partie interrompue reprend à la même manche, avec les mêmes cartes',()=>{
@@ -367,11 +367,11 @@ test('donne du jour : le jour vient de l’horloge UTC (Dakar)',()=>{
   const {c}=jeu();
   assert.equal(c.graineDuJour(new Date(Date.UTC(2026,9,30,23,30))).jour,20261030);
 });
-test('donne du jour : toujours en duel, en Équilibre, 16 manches, contre la Sage, quels que soient les réglages',()=>{
+test('donne du jour : toujours en duel, en Piliers, 16 manches, contre la Sage, quels que soient les réglages',()=>{
   const {c}=jeu({atoutvie_mode:'table4',atoutvie_niveau:'apprentie',atoutvie_verdict:'classique',atoutvie_manches:'8'});
   assert.equal(c.P.mode,'table4');
   c.donneDuJour();
-  assert.notEqual(c.P.mode,'table4');assert.equal(c.P.total,16);assert.equal(c.P.verdict,'equilibre');assert.equal(c.niveauEffectif(),'sage');
+  assert.notEqual(c.P.mode,'table4');assert.equal(c.P.total,16);assert.equal(c.P.verdict,'piliers');assert.equal(c.niveauEffectif(),'sage');
 });
 test('Fantôme : son joueur ne pioche pas, la pioche ne perd qu’une carte',()=>{
   const {c}=jeu(),p=c.nouvellePartie();p.jokers[1]=[{id:'j5'}];p.initiative=1;
@@ -476,10 +476,10 @@ test('table à 4 en Équilibre : l’IA ne lit que sa main, 100 parties cohéren
     assert.ok(p.historique.every(h=>h.bonus===0));
   }
 });
-test('donne du jour en Équilibre : la même graine, la même partie pour tout le monde',()=>{
+test('donne du jour (v22 Équilibre, v23 Piliers) : la même graine, la même partie pour tout le monde',()=>{
   const a=jeu({atoutvie_verdict:'classique',atoutvie_manches:'8',atoutvie_mode:'table4'}).c,b=jeu({atoutvie_manches_equilibre:'10'}).c;
   a.donneDuJour();b.donneDuJour();
-  for(const x of [a,b]){assert.equal(x.P.verdict,'equilibre');assert.equal(x.P.total,16);assert.equal(x.P.mode,undefined);}
+  for(const x of [a,b]){assert.equal(x.P.verdict,'piliers');assert.equal(x.P.total,16);assert.equal(x.P.mode,undefined);}
   assert.equal(a.P.mains[1].map(x=>x.id).join(),b.P.mains[1].map(x=>x.id).join());
   assert.equal(a.P.pioche.map(x=>x.id).join(),b.P.pioche.map(x=>x.id).join());
   assert.equal(JSON.stringify(a.P.jokers),JSON.stringify(b.P.jokers));
@@ -589,4 +589,141 @@ test('départage : la voix dit le niveau utilisé',()=>{
   assert.match(dire({h1:q(50),h2:q(50)}),/ Égalité sur l’Équilibre, le total, les 50 et les 40 : partie nulle\.$/);
   assert.match(dire({mode:'table4',h1:q(50),h2:q(50),t2:[40]}),/^Nos deux piliers faibles : .* Égalité sur l’Équilibre, le total et les 50 : ils ont pris plus de 40, la partie est à eux\.$/);
   assert.match(dire({h1:[...q(50),['Santé',30]],h2:q(50)}),/Égalité sur l’Équilibre, le total décide : 230 contre 200\. La partie est à toi\.$/);
+});
+
+/* ── Le verdict Piliers (Lamine, 10 novembre 2026, v23) ── */
+const T=(sp,am,sa,ar)=>({'Spiritualité':sp,'Amour':am,'Santé':sa,'Argent':ar});
+test('verdictPiliers : 3-1, 4-0 (Razzia), 2-2, piliers à égalité',()=>{
+  const {c}=jeu();const v=(a,b)=>{const r=c.verdictPiliers({1:a,2:b});return [[...r.piliers[1]].join(),[...r.piliers[2]].join(),[...r.piliers.disputes].join(),r.gagnant,r.razzia];};
+  assert.deepEqual(v(T(100,50,30,0),T(20,10,60,0)),['Spiritualité,Amour','Santé','Argent',1,false],'2-1 avec un pilier 0-0 disputé');
+  assert.deepEqual(v(T(100,50,30,10),T(20,10,60,5)),['Spiritualité,Amour,Argent','Santé','',1,false],'3-1');
+  assert.deepEqual(v(T(5,5,5,5),T(0,0,0,0)),['Spiritualité,Amour,Santé,Argent','','',1,true],'4-0 : Razzia');
+  assert.deepEqual(v(T(0,0,0,0),T(5,5,5,5)),['','Spiritualité,Amour,Santé,Argent','',2,true]);
+  assert.deepEqual(v(T(100,50,30,10),T(20,90,60,5)),['Spiritualité,Argent','Amour,Santé','',null,false],'2-2 : personne');
+  assert.deepEqual(v(T(45,45,10,0),T(45,45,0,10)),['Santé','Argent','Spiritualité,Amour',null,false],'1-1, deux piliers à égalité');
+  assert.deepEqual(v(T(0,0,0,0),T(0,0,0,0)),['','','Spiritualité,Amour,Santé,Argent',null,false],'0-0');
+  const t4=c.verdictPiliers({nous:T(10,0,0,0),eux:T(0,0,0,0)});assert.equal(t4.gagnant,'nous');assert.equal(t4.razzia,false);
+});
+test('Piliers par défaut : 16 manches, pas de bonus, Équilibre retiré des réglages',()=>{
+  const {c,nodes}=jeu();assert.equal(c.verdictJeu,'piliers');assert.equal(c.P.verdict,'piliers');assert.equal(c.P.total,16);
+  c.ouvrirReglages();const h=c.reglagesHTML();assert.match(h,/>Piliers<\/button>/);assert.match(h,/>Classique<\/button>/);assert.doesNotMatch(h,/>Équilibre<\/button>/);
+  assert.equal(jeu({atoutvie_verdict:'equilibre'}).c.verdictJeu,'piliers','un ancien choix Équilibre devient Piliers');
+  const p=c.nouvellePartie({verdict:'piliers'});p.jokers={1:[],2:[]};let r;for(const pil of piliers)r=manche(c,p,pil);
+  assert.equal(r.bonus,0);const B=c.bilanPartie(p);assert.equal(B.niveau,'razzia');assert.equal(B.gagnant,1);assert.equal(B.principal[1],4);
+});
+/* Une partie Piliers terminée sur un 2-2 : Toi gagne Spiritualité et Amour, elle Santé et Argent. */
+function partie22(c,mains){
+  const p=c.nouvellePartie({verdict:'piliers',manches:4,rnd:seed4(21)});p.jokers={1:[],2:[]};
+  manche(c,p,'Spiritualité');manche(c,p,'Santé',{},2);manche(c,p,'Amour');manche(c,p,'Argent',{},2);
+  if(mains){p.mains=mains;}
+  return p;
+}
+test('manche décisive : tirée au sort parmi les piliers à égalité, sinon parmi les quatre, avec p.rnd',()=>{
+  const {c}=jeu();
+  let p=partie22(c);assert.equal(c.manchesJouees(p),true);assert.equal(c.besoinDecisive(p),true);assert.equal(c.finie(p),false,'pas finie avant la manche décisive');
+  const tires=new Set();for(let g=0;g<40;g++){const q=partie22(c);q.rnd=c.tirage(100+g);tires.add(c.preparerDecisive(q).pilier);}
+  assert.equal(tires.size,4,'2-2 sans pilier à égalité : les quatre peuvent sortir');
+  const a=partie22(c),b=partie22(c);a.rnd=c.tirage(42);b.rnd=c.tirage(42);assert.equal(c.preparerDecisive(a).pilier,c.preparerDecisive(b).pilier,'même graine, même pilier');
+  // 1-1 avec deux piliers à égalité (0-0) : seulement eux.
+  const v=new Set();for(let g=0;g<40;g++){const q=c.nouvellePartie({verdict:'piliers',manches:2,rnd:c.tirage(300+g)});q.jokers={1:[],2:[]};manche(c,q,'Santé');manche(c,q,'Argent',{},2);
+    assert.equal(c.besoinDecisive(q),true);v.add(c.preparerDecisive(q).pilier);}
+  assert.deepEqual([...v].sort(),['Amour','Spiritualité']);
+});
+test('manche décisive : la carte du pilier si on en a, sinon une carte morte qui compte ; pas de joker ; égalité au non-initiateur',()=>{
+  const {c}=jeu();
+  // Elle a de l'Amour, Toi non : ta carte morte de 50 bat son 40 d'Amour.
+  let p=partie22(c,{1:[carte('m','Santé',50)],2:[carte('e1','Amour',40),carte('e2','Argent',5)]});p.rnd=()=>0.4;   // disputes : aucun → les quatre ; 0.4 → Amour
+  p.jokers={1:[{id:'j1'}],2:[{id:'j2'}]};
+  let d=c.preparerDecisive(p);assert.equal(d.pilier,'Amour');
+  assert.deepEqual(c.jouablesDecisive(p,2).map(x=>x.id),['e1'],'elle doit jouer son Amour');
+  assert.throws(()=>c.resoudreDecisive(p,{1:'m',2:'e2'}),/ne peut pas poser/);
+  d=c.resoudreDecisive(p,{1:'m',2:'e1'});assert.equal(d.gagnant,1);assert.equal(d.poses.find(x=>x.joueur===1).morte,true);
+  assert.equal(p.jokers[1].length+p.jokers[2].length,2,'aucun joker ne sort');assert.equal(c.finie(p),true);
+  let B=c.bilanPartie(p);assert.equal(B.niveau,'decisive');assert.equal(B.gagnant,1);
+  // Égalité : la dernière manche était ouverte par elle (initiative 2) → Toi ouvres la décisive et gagnes l'égalité.
+  p=partie22(c,{1:[carte('m','Amour',30)],2:[carte('e','Amour',30)]});p.rnd=()=>0.4;
+  assert.equal(p.historique.at(-1).ouvreur,2);d=c.preparerDecisive(p);assert.deepEqual([...d.ordre],[1,2]);
+  d=c.resoudreDecisive(p,{1:'m',2:'e'});assert.equal(d.egalite,true);assert.equal(d.gagnant,1);
+});
+test('manche décisive : mains vides → deux cartes tirées des plis mélangés, face connue',()=>{
+  const {c}=jeu();const p=partie22(c,{1:[],2:[]});
+  const avant=Object.values(p.plis).flat().length;const d=c.preparerDecisive(p);
+  assert.equal(p.mains[1].length,2);assert.equal(p.mains[2].length,2);assert.ok(p.mains[1].every(x=>x.connue));
+  assert.equal(Object.values(p.plis).flat().length,avant-4,'les cartes quittent les plis');
+  assert.equal(d.donnees[1].length+d.donnees[2].length,4);
+  c.resoudreDecisive(p,{1:c.choixDecisive(p,1).id,2:c.choixDecisive(p,2).id});assert.equal(c.finie(p),true);
+});
+test('manche décisive à l’écran : annonce, carte, résultat, puis la fin',()=>{
+  const {c,nodes}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};
+  c.P=partie22(c,{1:[carte('m','Santé',50)],2:[carte('e1','Amour',40)]});c.P.rnd=()=>0.4;c.tour();
+  let h=nodes.get('app').innerHTML;assert.match(h,/MANCHE DÉCISIVE/);assert.match(h,/pilier <b>Amour<\/b>/);assert.match(h,/Jouer la manche décisive/);
+  assert.equal(dits.at(-1),'Deux partout. Manche décisive sur l’Amour.');
+  c.commencerDecisive();assert.match(nodes.get('app').innerHTML,/tu n’as pas d’Amour/);
+  c.jouerDecisive('m');h=nodes.get('app').innerHTML;assert.match(h,/Tu remportes la manche décisive/);
+  assert.equal(dits.at(-1),'Ton 50 de Santé contre son 40 d’Amour. La manche décisive est à toi.');
+  c.rendreFin();assert.match(nodes.get('app').innerHTML,/VICTOIRE/);assert.equal(dits.at(-1),'Deux partout ; la manche décisive est à toi. La partie est à toi.');
+  assert.equal(c.STATS.etat().victoires,1);
+});
+test('table à 4 en Piliers : par équipe, prime au pilier contesté, manche décisive à quatre',()=>{
+  const {c}=jeu();const p=c.nouvelleTable4({rnd:seed4(31),verdict:'piliers'});p.jokers={1:[],2:[],3:[],4:[]};
+  const k=(id,pil,pts)=>({id,pilier:pil,pts,nom:'T',cit:''});
+  p.ouvreur=1;p.mains={1:[k('a','Santé',40)],2:[k('b','Santé',50),k('b2','Amour',5)],3:[k('c','Argent',10)],4:[k('d','Spiritualité',5)]};
+  c.resoudreManche4(p,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Santé',carte:'b'},{joueur:3,pilier:'Argent',carte:'c'},{joueur:4,pilier:'Spiritualité',carte:'d'}]);
+  let B=c.bilanPartie(p);assert.deepEqual([...B.piliers.piliers.eux],['Santé']);assert.equal(B.gagnant,'eux');
+  // Égalité 1-1 à la fin : manche décisive à quatre, l'équipe de la plus forte gagne.
+  p.historique.push({equipe:'nous',pilierGagnant:'Amour',butin:195,primes:[]});p.manche=p.total+1;
+  assert.equal(c.besoinDecisive(p),true);
+  p.mains={1:[k('m1','Amour',10)],2:[k('m2','Amour',20)],3:[k('m3','Santé',50)],4:[k('m4','Argent',5)]};p.rnd=()=>0;
+  const d=c.preparerDecisive(p);assert.ok(['Spiritualité','Argent'].includes(d.pilier));
+  c.resoudreDecisive(p,{1:'m1',2:'m2',3:'m3',4:'m4'});assert.equal(d.gagnant,'nous','le 50 de Nord, hors pilier, compte');
+  assert.equal(c.bilanPartie(p).gagnant,'nous');
+});
+test('la voix en Piliers : les fronts quand ils changent, puis le verdict',()=>{
+  const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};const p=c.P;p.jokers={1:[],2:[]};
+  c.annoncerVerdict(manche(c,p,'Amour'));assert.match(dits.at(-1),/La manche est à toi\. Amour à toi\.$/);
+  c.annoncerVerdict(manche(c,p,'Amour'));assert.match(dits.at(-1),/La manche est à toi\.$/,'rien ne change : rien de plus');
+  c.annoncerVerdict(manche(c,p,'Santé',{},2));assert.match(dits.at(-1),/Santé à elle\.$/);
+  const B=(n1,n2,dis,g,razzia)=>({verdict:'piliers',camps:[1,2],gagnant:g,razzia,piliers:{piliers:{1:Array(n1).fill('x'),2:Array(n2).fill('y'),disputes:Array(dis).fill('z')}}});
+  assert.equal(c.phraseVerdict(B(3,1,0,1,false)),'Trois piliers à toi, un à elle. La partie est à toi.');
+  assert.equal(c.phraseVerdict(B(1,2,1,2,false)),'Deux piliers à elle, un à toi, un disputé. La partie est à elle.');
+  assert.equal(c.phraseVerdict(B(4,0,0,1,true)),'Razzia ! Les quatre piliers sont à toi.');
+  const t4={...B(3,0,1,'nous',false),camps:['nous','eux'],piliers:{piliers:{nous:['a','b','c'],eux:[],disputes:['d']}}};
+  assert.equal(c.phraseVerdict(t4),'Trois piliers à nous, aucun à eux, un disputé. La partie est à nous.');
+  const d4=jeu({atoutvie_mode:'table4'}).c,dd=[];d4.VOIX={dire:t=>dd.push(t)};
+  const q=d4.P;q.jokers={1:[],2:[],3:[],4:[]};q.ouvreur=1;const k=(id,pil,pts)=>({id,pilier:pil,pts,nom:'T',cit:''});
+  q.mains={1:[k('a','Santé',40)],2:[k('b','Amour',5)],3:[k('c','Argent',10)],4:[k('d','Spiritualité',5)]};
+  d4.annoncerVerdict(d4.resoudreManche4(q,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Amour',carte:'b'},{joueur:3,pilier:'Argent',carte:'c'},{joueur:4,pilier:'Spiritualité',carte:'d'}]));
+  assert.match(dd.at(-1),/Santé à nous\.$/);
+});
+test('IA en Piliers : l’Apprentie revient là où elle est derrière de peu ; la Sage ne lit que sa main',()=>{
+  const {c}=jeu();const p=c.nouvellePartie({verdict:'piliers'});c.P=p;p.jokers={1:[],2:[]};
+  manche(c,p,'Amour');                            // Toi : Amour 45 → elle est derrière de 45 (≥ 40) : rien
+  p.historique.push({gagnant:1,pilierGagnant:'Santé',butin:30});   // Toi : Santé 30 → derrière de 30 (< 40) : +14
+  p.mains[2]=[carte('s','Santé',30),carte('a','Amour',35)];p.initiative=2;
+  assert.equal(c.iaChoisit(null).carte.id,'s','30 de Santé (+14) avant 35 d’Amour');
+  const s=jeu({atoutvie_niveau:'sage'}).c;assert.equal(s.P.verdict,'piliers');
+  Object.defineProperty(s.P.mains,1,{get(){throw Error('main adverse consultée');}});
+  Object.defineProperty(s.P.jokers,1,{get(){throw Error('jokers adverses consultés');}});
+  s.preparerIA('Santé');assert.ok(s.planIA.carte);
+});
+test('table à 4 en Piliers : l’IA ne lit que sa main, 100 parties cohérentes, manche décisive comprise',()=>{
+  const {c}=jeu();const rnd=seed4(41);let decisives=0;
+  for(let i=0;i<100;i++){const p=c.nouvelleTable4({rnd,verdict:'piliers'});
+    while(!c.manchesJouees(p)){const coups=[];
+      for(const j of c.ordreManche4(p)){const autres=[1,2,3,4].filter(x=>x!==j),mains=p.mains,jokers=p.jokers;
+        p.mains=new Proxy(mains,{get(t,k){if(autres.includes(+k))throw Error('main '+k+' consultée par '+j);return t[k];}});
+        p.jokers=new Proxy(jokers,{get(t,k){if(autres.includes(+k))throw Error('jokers '+k+' consultés par '+j);return t[k];}});
+        const d=c.ia4(p,j,coups);p.mains=mains;p.jokers=jokers;coups.push({joueur:j,pilier:d.pilier,carte:d.carte.id,joker:d.joker});}
+      c.resoudreManche4(p,coups);}
+    if(c.besoinDecisive(p)){decisives++;c.preparerDecisive(p);const co={};[1,2,3,4].forEach(j=>co[j]=c.choixDecisive(p,j).id);c.resoudreDecisive(p,co);}
+    assert.equal(c.finie(p),true);assert.notEqual(c.bilanPartie(p).gagnant,null);assert.ok(p.historique.every(h=>h.bonus===0));
+  }
+  assert.ok(decisives>0&&decisives<60,'manches décisives : '+decisives);
+});
+test('donne du jour en Piliers : la même graine, la même manche décisive pour tout le monde',()=>{
+  const a=jeu({atoutvie_verdict:'classique'}).c,b=jeu().c;a.donneDuJour();b.donneDuJour();
+  for(const x of [a,b])assert.equal(x.P.verdict,'piliers');
+  // On mène les deux parties au même 2-2 : la manche décisive tire le même pilier.
+  for(const x of [a,b]){const p=x.P;p.total=4;p.jokers={1:[],2:[]};manche(x,p,'Spiritualité');manche(x,p,'Santé',{},2);manche(x,p,'Amour');manche(x,p,'Argent',{},2);}
+  assert.equal(a.preparerDecisive(a.P).pilier,b.preparerDecisive(b.P).pilier);
 });

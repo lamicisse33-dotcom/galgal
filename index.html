@@ -918,10 +918,13 @@ function choixDecisive(p,j){
 /* coups : {joueur: id de carte}. Aucun joker n'est accepté. */
 function resoudreDecisive(p,coups){
   var d=p.decisive;if(!d||d.joue)throw new Error("pas de manche décisive à jouer");
+  // Tout est vérifié avant de toucher aux mains : un coup refusé ne laisse rien à moitié joué.
+  d.ordre.forEach(function(j){
+    var id=coups[j];
+    if(!jouablesDecisive(p,j).some(function(k){return k.id===id;}))throw new Error("le joueur "+j+" ne peut pas poser "+id+" dans la manche décisive");
+  });
   var poses=d.ordre.map(function(j){
-    var id=coups[j],ok=jouablesDecisive(p,j).filter(function(k){return k.id===id;})[0];
-    if(!ok)throw new Error("le joueur "+j+" ne peut pas poser "+id+" dans la manche décisive");
-    var carte=retirerDeLaMain(p,j,id);
+    var carte=retirerDeLaMain(p,j,coups[j]);
     return {joueur:j,carte:carte,valeur:carte.pts,morte:carte.pilier!==d.pilier};
   });
   var g=poses[0];poses.forEach(function(x){if(x.valeur>g.valeur)g=x;});   // égalité : le premier posé
@@ -2621,13 +2624,13 @@ function enchainer(){
 }
 
 /* La donne du jour : la même main pour tout le monde, et la Sage en face.
-   Toujours au verdict Équilibre, en 16 manches — le paquet entier —, quels
+   Toujours au verdict Piliers (Équilibre jusqu'à la v22), en 16 manches — le paquet entier —, quels
    que soient les réglages : sinon deux scores du jour ne se comparent pas.
    Un résultat par jour, qu'on peut partager. */
 function donneDuJour(){
   var g=graineDuJour();
   reglagesOuverts=false;
-  neuf({manches:16,rnd:tirage(g.graine),donne:g.jour,mode:'duel',verdict:'equilibre'});
+  neuf({manches:16,rnd:tirage(g.graine),donne:g.jour,mode:'duel',verdict:'piliers'});
 }
 function niveauEffectif(){ return (P&&P.donne)?'sage':niveau; }
 function libelleJour(j){
