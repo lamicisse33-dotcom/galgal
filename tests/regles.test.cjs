@@ -501,3 +501,53 @@ test('la voix en Équilibre : piliers conquis, deux faibles au verdict, égalit�
     'Nos deux piliers faibles : Amour 60, Santé 75. Les leurs : Argent 40, Amour 90. La partie est à eux.');
   dits.length=0;c.rendreFin();assert.match(dits[0],/^Tes deux piliers faibles : /);
 });
+test('trophées : les 40 et 50 adverses capturés, Fantôme et carte du partenaire exclus',()=>{
+  const {c}=jeu(),p=c.nouvellePartie({verdict:'equilibre'});p.jokers={1:[],2:[]};p.pioche=[];
+  const coup=(a,b,o={})=>{p.mains={1:[a],2:[b]};return c.resoudreManche(p,{pilier1:a.pilier,carte1:a.id,pilier2:b.pilier,carte2:b.id,...o});};
+  coup(carte('x1','Santé',50),carte('y1','Amour',50));            // Toi ouvres, égalité : son 50 d'Amour est à toi
+  coup(carte('x2','Santé',10),carte('y2','Argent',40));           // elle ouvre et gagne : ton 10 n'est pas un trophée
+  coup(carte('x3','Amour',40),carte('y3','Argent',50));           // Toi ouvres, elle gagne : ton 40 d'Amour est à elle
+  const t1=c.trophees(p,1),t2=c.trophees(p,2);
+  assert.deepEqual([...t1].map(t=>t.pts+' '+t.pilier),['50 Amour']);
+  assert.deepEqual([...t2].map(t=>t.pts+' '+t.pilier),['40 Amour']);
+  // À 4 : la carte du partenaire ne compte pas.
+  const q=c.nouvelleTable4({rnd:seed4(3),verdict:'equilibre'});q.ouvreur=1;q.jokers={1:[],2:[],3:[],4:[]};
+  q.mains={1:[carte('a','Santé',50)],2:[carte('b','Amour',40)],3:[carte('d','Argent',50)],4:[carte('e','Spiritualité',5)]};
+  c.resoudreManche4(q,[{joueur:1,pilier:'Santé',carte:'a'},{joueur:2,pilier:'Amour',carte:'b'},{joueur:3,pilier:'Argent',carte:'d'},{joueur:4,pilier:'Spiritualité',carte:'e'}]);
+  assert.deepEqual([...c.trophees(q,'nous')].map(t=>t.pts+' '+t.pilier),['40 Amour']);
+});
+test('trophées : la vitrine tient dans l’en-tête, repliée en compteur quand la place manque',()=>{
+  const {c,nodes}=jeu();const P=c.P;
+  const prise=(pts,pil,m)=>({id:'t'+m,pilier:pil,pts,nom:'T',cit:'',par:2,gagnePar:1,morte:true,manche:m});
+  P.plis['Amour'].push(prise(50,'Amour',1),prise(40,'Santé',2));c.rendre();
+  let h=nodes.get('app').innerHTML;
+  assert.match(h,/class="tro or"[^>]*><i class="e-amo"><\/i>50<\/span><span class="tro"[^>]*><i class="e-san"><\/i>40/);
+  P.plis['Argent'].push(prise(50,'Argent',3),prise(50,'Spiritualité',4));c.rendre();h=nodes.get('app').innerHTML;
+  assert.match(h,/<button class="vitrine tro-cpt" onclick="voirTrophees\('1'\)"><b>50<\/b> ×3 · 40 ×1<\/button>/,'à 390 px, quatre trophées se replient');
+  c.innerWidth=1366;c.rendre();assert.doesNotMatch(nodes.get('app').innerHTML,/tro-cpt/,'sur grand écran, ils tiennent');
+  c.verdictJeu='classique';c.neuf();c.P.plis['Amour'].push(prise(50,'Amour',1));c.rendre();
+  assert.doesNotMatch(nodes.get('app').innerHTML,/vitrine/,'Classique : en-tête inchangé');
+});
+test('trophées : la voix les dit au verdict, après le reste',()=>{
+  const {c}=jeu(),dits=[];c.VOIX={dire:t=>dits.push(t)};
+  c.annoncerVerdict({c1:{pts:30,pilier:'Santé'},c2:{pts:50,pilier:'Amour'},jokers:{2:'j1'},bloque:{2:true},perdu:{},gagnant:1,ouvreur:1,egalite:false});
+  assert.match(dits.at(-1),/La manche est à toi\. Tu lui prends son 50 d’Amour\.$/);
+  c.annoncerVerdict({c1:{pts:40,pilier:'Santé'},c2:{pts:50,pilier:'Argent'},jokers:{},bloque:{},perdu:{},gagnant:2,ouvreur:1,egalite:false});
+  assert.equal(dits.at(-1),'Ton 40 de Santé contre son 50 d’Argent. La manche est à elle. Elle te prend ton 40 de Santé.');
+  c.annoncerVerdict({c1:{pts:30,pilier:'Santé',fantome:true},c2:{pts:20,pilier:'Amour'},jokers:{},bloque:{},perdu:{},gagnant:2,ouvreur:1,egalite:false});
+  assert.doesNotMatch(dits.at(-1),/prend/);
+  const t4=jeu({atoutvie_mode:'table4'}).c,d4=[];t4.VOIX={dire:t=>d4.push(t)};
+  const pose=(joueur,pts,pilier)=>({joueur,pilier,valeur:pts,carte:{pts,pilier},joker:null});
+  t4.annoncerVerdict({poses:[pose(1,50,'Santé'),pose(2,40,'Amour'),pose(3,10,'Argent'),pose(4,50,'Spiritualité')],gagnant:1,equipe:'nous',bloque:{}});
+  assert.match(d4.at(-1),/Votre équipe prend le 40 d’Amour d’Est\. Votre équipe prend le 50 de Spiritualité d’Ouest\.$/);
+  t4.annoncerVerdict({poses:[pose(1,40,'Santé'),pose(2,50,'Amour'),pose(3,50,'Argent'),pose(4,10,'Spiritualité')],gagnant:2,equipe:'eux',bloque:{}});
+  assert.match(d4.at(-1),/Leur équipe te prend ton 40 de Santé\. Leur équipe prend le 50 d’Argent de Nord\.$/);
+});
+test('palmarès : 50 capturés en carrière et record d’une partie',()=>{
+  const {c,nodes,saved}=jeu();
+  const plis=n=>({'Amour':Array.from({length:n},(_,i)=>({pts:50,pilier:'Amour',par:2,gagnePar:1})).concat([{pts:50,pilier:'Santé',par:1,gagnePar:1},{pts:50,pilier:'Argent',par:2,gagnePar:2,fantome:true}])});
+  c.STATS.finPartie(10,5,plis(2),1);c.STATS.finPartie(10,5,plis(1),1);
+  assert.equal(c.STATS.etat().cinquante,3);assert.equal(c.STATS.etat().recordCinquante,2);
+  c.palmaresOuvert=true;c.rendre();assert.match(nodes.get('app').innerHTML,/50 capturés en carrière<\/span><b>3/);assert.match(nodes.get('app').innerHTML,/Record de 50 en une partie<\/span><b>2/);
+  assert.equal(JSON.parse(saved.galgal_stats).cinquante,3,'gardé dans le téléphone');
+});

@@ -449,6 +449,15 @@ body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;paddin
 #app .sc.eq{padding:4px 10px;align-items:stretch;gap:6px}
 #app .sc.eq .camp{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;min-width:0;gap:1px}
 #app .sc.eq .camp.droite{align-items:flex-end}
+#app .sc.eq .tete{display:flex;flex-direction:row;align-items:center;gap:4px;line-height:1;min-height:11px}
+#app .sc.eq .camp.droite .tete{flex-direction:row-reverse}
+#app .sc.eq .tete .nom{font-size:calc(9px * var(--ui-scale));color:#b4c1d2}
+.sc.eq .vitrine{display:flex;flex-direction:row;gap:2px}
+.sc.eq .tro{display:inline-flex;align-items:center;gap:1px;font:700 calc(8px * var(--ui-scale))/1 Cinzel,serif;color:#cfd8e6;background:#ffffff12;border-radius:5px;padding:1px 3px 1px 1px}
+.sc.eq .tro i{display:block;width:calc(9px * var(--ui-scale));height:calc(9px * var(--ui-scale));border-radius:50%;background-size:100%}
+.sc.eq .tro.or{color:#F0D060;background:#F0D0601f;box-shadow:inset 0 0 0 1px #F0D06099}
+.sc.eq .tro-cpt{font:700 calc(8px * var(--ui-scale))/1 Cinzel,serif;color:#cfd8e6;background:#ffffff12;border:1px solid #ffffff30;border-radius:6px;padding:1px 5px;cursor:pointer}
+.sc.eq .tro-cpt b{font:inherit;color:#F0D060}
 #app .sc.eq .camp .ligne{display:flex;flex-direction:row;align-items:baseline;gap:5px;line-height:1}
 #app .sc.eq .camp.droite .ligne{flex-direction:row-reverse}
 #app .sc.eq .camp .ligne b{font-size:calc(24px * var(--ui-scale))}
@@ -867,12 +876,25 @@ function bilanPartie(p){
     r.totaux[c]=totauxParPilier(p,c);r.faibles[c]=piliersFaibles(r.totaux[c]);
     r.equilibre[c]=scoreEquilibre(r.totaux[c]);r.total[c]=totalDe(p,c);
     r.principal[c]=r.verdict==="equilibre"?r.equilibre[c]:r.total[c];
+    r.trophees=r.trophees||{};r.trophees[c]=trophees(p,c);
   });
   var niveaux=r.verdict==="equilibre"?departage(p,r):[["total",r.total[a],r.total[b]]];
   for(var i=0;i<niveaux.length;i++){
     if(niveaux[i][1]!==niveaux[i][2]){r.gagnant=niveaux[i][1]>niveaux[i][2]?a:b;r.niveau=niveaux[i][0];break;}
   }
   return r;
+}
+/* LES TROPHÉES : les 40 et les 50 ADVERSES capturés — la carte du perdant
+   qui vient dans le pli du vainqueur. Le Fantôme n'en est pas un. À 4, la
+   carte d'un partenaire ne compte pas. */
+function adverseDe(p,camp,par){ return p.mode==="table4" ? EQUIPE[par]!==camp : par!==camp; }
+function trophees(p,camp){
+  var r=[];
+  PILIERS.forEach(function(x){p.plis[x].forEach(function(c){
+    if(c.gagnePar===camp&&!c.fantome&&(c.pts===40||c.pts===50)&&adverseDe(p,camp,c.par))
+      r.push({pilier:c.pilier,pts:c.pts,manche:c.manche,par:c.par});
+  });});
+  return r.sort(function(a,b){return a.manche-b.manche||b.pts-a.pts;});
 }
 /* Les niveaux de départage du verdict Équilibre, dans l'ordre. */
 function departage(p,r){
@@ -1091,9 +1113,24 @@ function conquetes(p,h){
 function phraseConquetes(p,h){
   return conquetes(p,h).map(function(x){return x+(x==='Santé'||x==='Spiritualité'?' conquise.':' conquis.');}).join(' ');
 }
+/* Les 40 et 50 adverses pris pendant cette manche, dits après le reste. */
+function phraseTrophees(d){
+  if(verdictDe(P)!=='equilibre'||!d)return '';
+  var gros=function(c){return c&&!c.fantome&&(c.pts===40||c.pts===50);};
+  if(P.mode==='table4'){
+    return (d.poses||[]).filter(function(x){return EQUIPE[x.joueur]!==d.equipe&&gros(x.carte);}).map(function(x){
+      var carte=x.carte.pts+' '+deDu(x.carte.pilier);
+      if(d.equipe==='nous')return 'Votre équipe prend le '+carte+' '+deDu(SIEGE[x.joueur])+'.';
+      return x.joueur===1?'Leur équipe te prend ton '+carte+'.':'Leur équipe prend le '+carte+' '+deDu(SIEGE[x.joueur])+'.';
+    }).join(' ');
+  }
+  var perdue=d.gagnant===1?d.c2:d.c1;
+  if(!gros(perdue))return '';
+  return d.gagnant===1?'Tu lui prends son '+perdue.pts+' '+deDu(perdue.pilier)+'.':'Elle te prend ton '+perdue.pts+' '+deDu(perdue.pilier)+'.';
+}
 function annoncerVerdict(d){
   if(!d)return;
-  var conquis=phraseConquetes(P,d);
+  var conquis=[phraseConquetes(P,d),phraseTrophees(d)].filter(Boolean).join(' ');
   if(P.mode==='table4'){
     var poseGagnant=(d.poses||[]).filter(function(x){return x.joueur===d.gagnant;})[0];
     var brakeur=poseGagnant&&poseGagnant.joker==='j1'&&!(d.bloque&&d.bloque[d.gagnant]);
@@ -2430,11 +2467,30 @@ function scoresEquilibreHTML(noms,milieu){
   function camp(x,autre,droite){
     var t=B.totaux[x];
     return '<div class="camp'+(droite?' droite':'')+(B.equilibre[x]>B.equilibre[autre]?' mene':'')+'">'
-      +'<span class="nom">'+noms[x]+'</span>'
+      +'<div class="tete"><span class="nom">'+noms[x]+'</span>'+vitrineHTML(B.trophees[x],x)+'</div>'
       +'<div class="ligne"><b>'+B.equilibre[x]+'</b><small>total '+B.total[x]+'</small></div>'
       +'<div class="pils">'+PILIERS.map(function(p){return pilierCourt(p,t[p],B.faibles[x].indexOf(p)>=0);}).join('')+'</div></div>';
   }
   return '<div class="sc eq">'+camp(a,b,false)+milieu+camp(b,a,true)+'</div>';
+}
+/* La vitrine des trophées : emblème + valeur, les 50 en doré. Elle tient
+   dans la ligne du nom et ne pousse jamais le plateau : quand la place
+   manque, elle se replie en un compteur « 50 ×2 · 40 ×1 » qu'on touche
+   pour voir le détail. */
+function placeVitrine(){ var w=window.innerWidth||390; return w<420?3:(w<700?5:8); }
+function vitrineHTML(liste,camp){
+  if(!liste||!liste.length)return '';
+  if(liste.length<=placeVitrine())
+    return '<span class="vitrine">'+liste.map(function(t){
+      return '<span class="tro'+(t.pts===50?' or':'')+'" title="'+t.pts+' '+deDu(t.pilier)+'"><i class="e-'+CLE[t.pilier]+'"></i>'+t.pts+'</span>';}).join('')+'</span>';
+  var n50=liste.filter(function(t){return t.pts===50;}).length,n40=liste.length-n50;
+  return '<button class="vitrine tro-cpt" onclick="voirTrophees(\''+camp+'\')">'
+    +[n50?'<b>50</b> ×'+n50:'',n40?'40 ×'+n40:''].filter(Boolean).join(' · ')+'</button>';
+}
+function voirTrophees(camp){
+  if(P.mode!=='table4')camp=+camp;
+  var l=trophees(P,camp),qui={1:'Tes trophées',2:'Ses trophées',nous:'Nos trophées',eux:'Leurs trophées'}[camp];
+  toast(qui+' : '+l.map(function(t){return t.pts+' '+deDu(t.pilier)+' (manche '+t.manche+')';}).join(', ')+'.');
 }
 /* Fin de partie : les quatre piliers des deux camps, les deux faibles marqués. */
 function tableauPiliersHTML(B,noms){
@@ -2672,7 +2728,7 @@ function lancerFeux(){
    par pilier. Conservé d'une session à l'autre. */
 var STATS = (function(){
   var vide={parties:0,victoires:0,defaites:0,egalites:0,meilleurScore:0,
-            serie:0,meilleureSerie:0,piliers:{}};
+            serie:0,meilleureSerie:0,piliers:{},cinquante:0,recordCinquante:0};
   function lire(){
     try{ var b=localStorage.getItem("galgal_stats");
          return b? Object.assign({},vide,JSON.parse(b)) : Object.assign({},vide); }
@@ -2689,10 +2745,16 @@ var STATS = (function(){
       else if(issue<0){ st.defaites++; st.serie=0; }
       else { st.egalites++; }
       if(s1>st.meilleurScore) st.meilleurScore=s1;
+      var n50=0;
       Object.keys(plis).forEach(function(p){
         var n=plis[p].filter(function(c){return c.gagnePar===1||c.gagnePar==='nous';}).length;
         if(n) st.piliers[p]=(st.piliers[p]||0)+n;
+        // Les 50 adverses capturés par le joueur (son équipe à 4), Fantôme exclu.
+        n50+=plis[p].filter(function(c){
+          return !c.fantome&&c.pts===50&&(c.gagnePar===1?c.par!==1:(c.gagnePar==='nous'&&(c.par===2||c.par===4)));}).length;
       });
+      st.cinquante=(st.cinquante||0)+n50;
+      if(n50>(st.recordCinquante||0)) st.recordCinquante=n50;
       ecrire();
     },
     remettre:function(){ st=Object.assign({},vide,{piliers:{}}); ecrire(); }
@@ -2744,6 +2806,7 @@ function palmaresHTML(){
     +ligne("Parties jouées",n)+ligne("Victoires",(st.victoires||0)+" · "+taux+" %")
     +ligne("Meilleur score",st.meilleurScore||0)+ligne("Série en cours",st.serie||0)+ligne("Meilleure série",st.meilleureSerie||0)
     +ligne("Pilier favori",favoris.length?favoris.join(", "):"—")
+    +ligne("50 capturés en carrière",st.cinquante||0)+ligne("Record de 50 en une partie",st.recordCinquante||0)
     +ligne("Donne du jour",d?d.s1+' – '+d.s2+((d.gagne!==undefined?d.gagne:d.s1>d.s2)?' ✓':''):'pas encore jouée')
     +'<div class="note">Ces chiffres restent sur ton téléphone.</div>'
     +'<button class="fermer" onclick="palmaresOuvert=false;ouvrirReglages()">Retour aux paramètres</button></div></div>';
@@ -2795,6 +2858,8 @@ function statsHTML(){
     +ligne("Série en cours", st.serie||0)
     +ligne("Meilleure série", st.meilleureSerie||0)
     +ligne("Pilier favori", favoris.length?favoris.join(", "):"—")
+    +ligne("50 capturés en carrière", st.cinquante||0)
+    +ligne("Record de 50 en une partie", st.recordCinquante||0)
     +'<div class="note">Cartes remportées par pilier</div>'+barres
     +'<button class="fermer" onclick="viderStats()">Remettre à zéro</button>'
     +'<button class="fermer" onclick="fermerStats()">Fermer</button>'
