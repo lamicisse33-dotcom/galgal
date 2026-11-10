@@ -455,6 +455,28 @@ body{width:100%;max-width:none;height:100dvh;min-height:0;overflow:hidden;paddin
 .dec-pose{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#b4c1d2}
 .dec-pose.gagne span{color:#F0D060;font-weight:700}
 .dec-pose.gagne .dec-k{filter:drop-shadow(0 0 10px #F0D060)}
+/* Verdict Piliers : les drapeaux */
+#app .sc.pil{padding:4px 8px;gap:6px;align-items:stretch}
+#app .sc.pil .compte{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;min-width:34px;gap:2px}
+#app .sc.pil .compte.droite{align-items:flex-end}
+#app .sc.pil .compte span{font-size:calc(9px * var(--ui-scale));color:#b4c1d2}
+#app .sc.pil .compte b{font-size:calc(30px * var(--ui-scale));line-height:1}
+#app .sc.pil .compte:not(.droite) b{color:#F0D060}
+#app .sc.pil .compte.droite b{color:#ff8a8a}
+#app .sc.pil .fronts{flex:1;display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;min-width:0;gap:2px}
+#app .sc.pil .info{display:block;font-family:Cinzel,serif;font-size:calc(8px * var(--ui-scale));color:#8b8397;text-align:center;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app .sc.pil .info span{font-size:inherit!important;color:inherit!important}
+.sc.pil .drapeaux{display:flex;flex-direction:row;justify-content:space-between;gap:3px}
+.sc.pil .drapeau{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 1px 2px;border-radius:9px;border:1.5px solid #8b839766;background:#ffffff08;min-width:0}
+.sc.pil .drapeau i{display:block;width:calc(18px * var(--ui-scale));height:calc(18px * var(--ui-scale));border-radius:50%;background-size:100%}
+.sc.pil .drapeau span{display:flex;flex-direction:row;gap:1px;font:700 calc(9px * var(--ui-scale))/1 Cinzel,serif;color:#8b8397;white-space:nowrap}
+.sc.pil .drapeau em{font-style:normal}.sc.pil .drapeau .pa{color:#F0D060}.sc.pil .drapeau .pb{color:#ff8a8a}
+.sc.pil .drapeau.a{border-color:#F0D060;background:#F0D06024;box-shadow:0 0 8px #F0D06044}
+.sc.pil .drapeau.b{border-color:#ff8a8a;background:#ff8a8a22;box-shadow:0 0 8px #ff8a8a44}
+.sc.pil .drapeau.d i{filter:grayscale(.85) brightness(.85)}
+.piliers-fin td.vq{font-family:Cinzel,serif;font-size:11px;letter-spacing:1px}
+.piliers-fin td.vq.a{color:#F0D060}.piliers-fin td.vq.b{color:#ff8a8a}.piliers-fin td.vq.d{color:#8b8397}
+.razzia{font-family:Cinzel,serif;font-weight:900;font-size:30px;letter-spacing:6px;color:#F0D060;text-shadow:0 0 18px #F0D06099;margin:4px 0}
 /* Verdict Équilibre : l'en-tête et l'écran de fin */
 #app .sc.eq{padding:4px 10px;align-items:stretch;gap:6px}
 #app .sc.eq .camp{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;min-width:0;gap:1px}
@@ -1814,7 +1836,7 @@ function rendre4(){
 
   var milieu='<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+'Table à 4</span></div>';
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
-    +(verdictDe(P)==="equilibre"?scoresEquilibreHTML({nous:"NOUS",eux:"EUX"},milieu):
+    +(verdictDe(P)==="piliers"?drapeauxHTML({nous:"NOUS",eux:"EUX"},milieu):verdictDe(P)==="equilibre"?scoresEquilibreHTML({nous:"NOUS",eux:"EUX"},milieu):
      '<div class="sc"><div class="'+(nous>eux?"mene":"")+'"><span>NOUS · piliers '+P.piliersGagnes.nous.length+'/4</span><b>'+nous+'</b></div>'
     +milieu
     +'<div class="'+(eux>nous?"mene":"")+'" style="align-items:flex-end"><span>EUX · piliers '+P.piliersGagnes.eux.length+'/4</span><b>'+eux+'</b></div></div>')+'</div>';
@@ -1891,13 +1913,14 @@ function rendreFin4(){
     +'<div class="score">'+nous+' <span style="opacity:.4">—</span> '+eux+'</div>'
     +'<div class="donne">'+(P.donne?'☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+' · ':'')+'TABLE À 4 · TOI & NORD CONTRE EST & OUEST</div>'
     +(B.verdict==='equilibre'?tableauPiliersHTML(B,{nous:'Nous',eux:'Eux'})+'<p class="verdict-fin">'+phraseVerdict(B)+'</p>':'')
+    +(B.verdict==='piliers'?(B.razzia?'<div class="razzia">RAZZIA</div>':'')+tableauFrontsHTML(B,{nous:'Nous',eux:'Eux'})+decisiveFinHTML()+'<p class="verdict-fin">'+phraseVerdict(B)+'</p>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '+Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
     +'<div class="bilan">'+Object.keys(P.plis).map(function(p){
         if(!P.plis[p].length)return "";
         var n1=P.plis[p].filter(function(c){return c.gagnePar==="nous";}).length,n2=P.plis[p].length-n1;
         return '<div class="col"><div class="tit">'+p+' — nous '+n1+' · eux '+n2+'</div><div class="lot">'+P.plis[p].map(function(c){return '<div class="mini">'+carteHTML(c)+'</div>';}).join("")+'</div></div>';
       }).join("")+'</div>'
-    +(B.verdict==='equilibre'?'':'<p>Bonus Équilibre : nous '+(P.bonusEquilibre.nous?'+40':'0')+' · eux '+(P.bonusEquilibre.eux?'+40':'0')+'</p>')
+    +(B.verdict!=='classique'?'':'<p>Bonus Équilibre : nous '+(P.bonusEquilibre.nous?'+40':'0')+' · eux '+(P.bonusEquilibre.eux?'+40':'0')+'</p>')
     +'<div class="actions"><button class="act" onclick="neuf()">Rejouer</button><button class="act" onclick="partager()">Partager</button>'
     +(P.donne?'':'<button class="act" onclick="donneDuJour()">☀️ Donne du jour</button>')+'</div></div>';
   if(gagne||nul)lancerFeux();
@@ -2436,7 +2459,7 @@ function dimensionsJeu(){
   var hauteur=(app&&app.clientHeight)||h-16;
   var facteur=Math.max(1,Math.min(2.2,h/800));
   var compact=h<540;
-  var eq=P&&verdictDe(P)==='equilibre';
+  var eq=P&&verdictDe(P)!=='classique';   // Équilibre et Piliers : une ligne de piliers en plus
   var entete=compact?36:Math.round(44*facteur), score=compact?(eq?54:40):Math.round((eq?66:52)*facteur), message=compact?52:Math.round(72*facteur), ecart=6;
   var contenu=Math.max(120,hauteur-entete-score-4*ecart-message);
   var colonnes=P&&P.mode==='table4'?4:5, lignes=2;
@@ -2627,6 +2650,38 @@ function voirTrophees(camp){
   var l=trophees(P,camp),qui={1:'Tes trophées',2:'Ses trophées',nous:'Nos trophées',eux:'Leurs trophées'}[camp];
   toast(qui+' : '+l.map(function(t){return t.pts+' '+deDu(t.pilier)+' (manche '+t.manche+')';}).join(', ')+'.');
 }
+/* ═══ LES PILIERS À L'ÉCRAN ════════════════════════════════════════════
+   Quatre drapeaux, un par pilier : la couleur du camp qui mène (doré pour
+   toi / nous, rose pour elle / eux), gris si disputé, les points des deux
+   camps dessous. Le compte des piliers en gros, de chaque côté. */
+function drapeauxHTML(noms,milieu){
+  var B=bilanPartie(P),c=B.camps,a=c[0],b=c[1],v=B.piliers;
+  var info=milieu.replace('<div class="mid">','').replace(/<\/div>$/,'').replace('<br>',' · ');
+  function camp(x,droite,autre){
+    return '<div class="compte'+(droite?' droite':'')+(v.piliers[x].length>v.piliers[autre].length?' mene':'')+'"><span>'+noms[x]+'</span><b>'+v.piliers[x].length+'</b></div>';
+  }
+  return '<div class="sc pil">'+camp(a,false,b)
+    +'<div class="fronts"><div class="info">'+info+'</div><div class="drapeaux">'
+    +PILIERS.map(function(x){
+      var qui=v.piliers[a].indexOf(x)>=0?'a':(v.piliers[b].indexOf(x)>=0?'b':'d');
+      return '<div class="drapeau '+qui+'" title="'+x+'"><i class="e-'+CLE[x]+'"></i><span><em class="pa">'+B.totaux[a][x]+'</em>·<em class="pb">'+B.totaux[b][x]+'</em></span></div>';
+    }).join('')+'</div></div>'+camp(b,true,a)+'</div>';
+}
+/* Fin de partie, verdict Piliers : chaque pilier, ses points, son vainqueur. */
+function tableauFrontsHTML(B,noms){
+  var c=B.camps,v=B.piliers;
+  return '<table class="piliers-fin"><tr><th></th>'+c.map(function(x){return '<th>'+noms[x]+'</th>';}).join('')+'<th></th></tr>'
+    +PILIERS.map(function(x){
+      var g=v.piliers[c[0]].indexOf(x)>=0?c[0]:(v.piliers[c[1]].indexOf(x)>=0?c[1]:null);
+      return '<tr><td><i class="e-'+CLE[x]+'"></i>'+x+'</td>'+c.map(function(k){return '<td class="'+(g===k?'faible':'')+'">'+B.totaux[k][x]+'</td>';}).join('')
+        +'<td class="vq '+(g===null?'d':(g===c[0]?'a':'b'))+'">'+(g===null?'disputé':noms[g])+'</td></tr>';
+    }).join('')+'</table>';
+}
+function decisiveFinHTML(){
+  var d=P.decisive;if(!d||!d.joue)return '';
+  return '<p class="note">Manche décisive sur '+(d.pilier==='Santé'||d.pilier==='Spiritualité'?'la ':'l’')+d.pilier+' : '
+    +d.poses.map(function(x){return nomJoueur(x.joueur)+' '+x.valeur+(x.morte?' (hors pilier)':'');}).join(' · ')+'.</p>';
+}
 /* Fin de partie : les quatre piliers des deux camps, les deux faibles marqués. */
 function tableauPiliersHTML(B,noms){
   var c=B.camps;
@@ -2640,7 +2695,24 @@ function tableauPiliersHTML(B,noms){
 }
 /* La phrase du verdict, la même à l'écran et à la voix. */
 function deuxFaibles(B,x){ return B.faibles[x].map(function(p){return p+' '+B.totaux[x][p];}).join(', '); }
+var NOMBRES=['aucun','un','deux','trois','quatre'];
+function aQui(camp){ return {1:'à toi',2:'à elle',nous:'à nous',eux:'à eux'}[camp]; }
+function phrasePiliers(B){
+  var c=B.camps,v=B.piliers,n0=v.piliers[c[0]].length,n1=v.piliers[c[1]].length,dis=v.piliers.disputes.length;
+  if(B.razzia)return 'Razzia ! Les quatre piliers sont '+aQui(B.gagnant)+'.';
+  if(n0===n1){
+    var egal=n0?NOMBRES[n0].charAt(0).toUpperCase()+NOMBRES[n0].slice(1)+' partout':'Aucun pilier pris';
+    var d=P&&P.decisive;
+    if(d&&d.joue)return egal+' ; la manche décisive est '+aQui(B.gagnant)+'. La partie est '+aQui(B.gagnant)+'.';
+    return egal+'.'+(d?' Manche décisive sur '+(d.pilier==='Santé'||d.pilier==='Spiritualité'?'la ':'l’')+d.pilier+'.':'');
+  }
+  var g=B.gagnant,p=g===c[0]?c[1]:c[0],ng=v.piliers[g].length,np=v.piliers[p].length;
+  var t=NOMBRES[ng].charAt(0).toUpperCase()+NOMBRES[ng].slice(1)+' pilier'+(ng>1?'s ':' ')+aQui(g)+', '+NOMBRES[np]+' '+aQui(p)
+    +(dis?', '+NOMBRES[dis]+' disputé'+(dis>1?'s':''):'')+'.';
+  return t+' La partie est '+aQui(g)+'.';
+}
 function phraseVerdict(B){
+  if(B.verdict==='piliers')return phrasePiliers(B);
   var t4=B.camps[0]==='nous',a=B.camps[0],b=B.camps[1];
   var issue=B.gagnant===null?'Partie nulle.':(B.gagnant===a?(t4?'La partie est à nous.':'La partie est à toi.'):(t4?'La partie est à eux.':'La partie est à elle.'));
   if(B.verdict!=='equilibre')return issue;
@@ -2710,7 +2782,7 @@ function rendre(){
 
   var milieu='<div class="mid">'+Math.min(P.manche,P.total)+'/'+P.total+'<br><span style="font-size:8px;color:#8b8397">'+(P.donne?'☀️ '+libelleJour(P.donne)+' · ':'')+NIVEAUX[niveauEffectif()]+' · pioche '+P.pioche.length+'</span></div>';
   var h='<div class="entete"><div class="marque" id="titreJeu">ATOUT VIE <small>par KHALAM</small></div><button class="sonbtn" onclick="ouvrirReglages()" aria-label="Paramètres">⚙️</button></div><div class="bar">'
-    +(verdictDe(P)==="equilibre"?scoresEquilibreHTML({1:"TOI",2:"ELLE"},milieu):
+    +(verdictDe(P)==="piliers"?drapeauxHTML({1:"TOI",2:"ELLE"},milieu):verdictDe(P)==="equilibre"?scoresEquilibreHTML({1:"TOI",2:"ELLE"},milieu):
      '<div class="sc"><div class="'+(P.s1>P.s2?"mene":"")+'"><span>TOI · piliers '+P.piliersGagnes[1].length+'/4</span><b>'+P.s1+'</b></div>'
     +milieu
     +'<div class="'+(P.s2>P.s1?"mene":"")+'" style="align-items:flex-end"><span>ELLE · piliers '+P.piliersGagnes[2].length+'/4</span><b>'+P.s2+'</b></div></div>')+'</div>';
@@ -3075,6 +3147,7 @@ function rendreFin(){
     +'<div class="score">'+s1+' <span style="opacity:.4">—</span> '+s2+'</div>'
     +(P.donne?'<div class="donne">☀️ DONNE DU '+libelleJour(P.donne).toUpperCase()+(P._premiere?' · PREMIÈRE TENTATIVE':(gardee?' · ENTRAÎNEMENT — ta première tentative : '+gardee.s1+'–'+gardee.s2:''))+'</div>':'')
     +(B.verdict==='equilibre'?tableauPiliersHTML(B,{1:'Toi',2:'Elle'})+'<p class="verdict-fin">'+phraseVerdict(B)+'</p>':'')
+    +(B.verdict==='piliers'?(B.razzia?'<div class="razzia">RAZZIA</div>':'')+tableauFrontsHTML(B,{1:'Toi',2:'Elle'})+decisiveFinHTML()+'<p class="verdict-fin">'+phraseVerdict(B)+'</p>':'')
     +'<p style="color:#8b8397;font-size:12px">'+P.total+' manches · '
     +Object.keys(P.plis).map(function(p){return p+" "+P.plis[p].length;}).join(" · ")+'</p>'
     +'<div class="bilan">'+Object.keys(P.plis).map(function(p){
@@ -3085,7 +3158,7 @@ function rendreFin(){
           +P.plis[p].map(function(c){return '<div class="mini">'+carteHTML(c)+'</div>';}).join("")
           +'</div></div>';
       }).join("")+'</div>'
-    +(B.verdict==='equilibre'?'':'<p>Bonus Équilibre : toi '+(P.bonusEquilibre[1]?'+40':'0')+' · elle '+(P.bonusEquilibre[2]?'+40':'0')+'</p>')
+    +(B.verdict!=='classique'?'':'<p>Bonus Équilibre : toi '+(P.bonusEquilibre[1]?'+40':'0')+' · elle '+(P.bonusEquilibre[2]?'+40':'0')+'</p>')
     +'<div class="actions"><button class="act" onclick="neuf()">Rejouer</button>'
     +'<button class="act" onclick="partager()">Partager</button>'
     +(P.donne?'':'<button class="act" onclick="donneDuJour()">☀️ Donne du jour</button>')+'</div></div>';
